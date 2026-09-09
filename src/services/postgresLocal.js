@@ -1,4 +1,4 @@
-const HTTPS_TUNNEL_URL = 'https://pbyvm-189-69-210-76.run.pinggy-free.link';
+const HTTPS_TUNNEL_URL = import.meta.env.VITE_POSTGRES_API_URL || 'https://pbyvm-189-69-210-76.run.pinggy-free.link';
 const LOCAL_URL = 'http://localhost:3002';
 
 // Retorna a URL base ativa (prioriza localhost em ambiente local)
