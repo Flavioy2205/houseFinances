@@ -4,7 +4,8 @@ import {
   getSupabaseConfig, 
   fetchCloudTransactions, 
   insertCloudTransaction, 
-  deleteCloudTransaction 
+  deleteCloudTransaction,
+  updateCloudTransaction
 } from '../services/supabase';
 
 const FinanceContext = createContext();
@@ -185,8 +186,11 @@ export const FinanceProvider = ({ children }) => {
     await deleteCloudTransaction(id, activeUserId);
   };
 
-  const updateTransaction = (id, updatedData) => {
+  const updateTransaction = async (id, updatedData) => {
     setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updatedData } : t));
+
+    // Atualiza EXCLUSIVAMENTE no Supabase Cloud
+    await updateCloudTransaction(id, updatedData, activeUserId);
   };
 
   const clearAllData = () => {

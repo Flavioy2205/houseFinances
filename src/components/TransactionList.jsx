@@ -8,9 +8,11 @@ import {
   Tag, 
   Calendar,
   DollarSign,
-  Repeat
+  Repeat,
+  Pencil
 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
+import { EditExpenseModal } from './EditExpenseModal';
 
 const CATEGORY_NAMES = {
   assinatura: '📺 Assinatura',
@@ -27,6 +29,7 @@ export const TransactionList = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterPayment, setFilterPayment] = useState('all');
+  const [editingTransaction, setEditingTransaction] = useState(null);
 
   const filteredTransactions = transactions.filter(t => {
     const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -173,17 +176,28 @@ export const TransactionList = () => {
                       )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
-                      <button
-                        className="btn btn-danger"
-                        style={{ padding: '4px 8px' }}
-                        onClick={() => {
-                          if (confirm(`Deseja excluir a despesa "${t.description}"?`)) {
-                            deleteTransaction(t.id);
-                          }
-                        }}
-                      >
-                        <Trash2 size={15} />
-                      </button>
+                      <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'center' }}>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ padding: '4px 8px', background: 'rgba(245, 158, 11, 0.15)', borderColor: 'rgba(245, 158, 11, 0.35)', color: '#fbbf24' }}
+                          title="Editar despesa"
+                          onClick={() => setEditingTransaction(t)}
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          className="btn btn-danger"
+                          style={{ padding: '4px 8px' }}
+                          title="Excluir despesa"
+                          onClick={() => {
+                            if (confirm(`Deseja excluir a despesa "${t.description}"?`)) {
+                              deleteTransaction(t.id);
+                            }
+                          }}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -198,6 +212,13 @@ export const TransactionList = () => {
           </table>
         </div>
       </div>
+
+      {editingTransaction && (
+        <EditExpenseModal
+          transaction={editingTransaction}
+          onClose={() => setEditingTransaction(null)}
+        />
+      )}
     </div>
   );
 };

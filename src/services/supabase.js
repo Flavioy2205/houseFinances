@@ -134,6 +134,46 @@ export const deleteCloudTransaction = async (id, userEmailOrId = null) => {
   }
 };
 
+// Atualiza transação existente no banco Supabase
+export const updateCloudTransaction = async (id, updatedTx, userEmailOrId = null) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const payload = {
+      description: updatedTx.description,
+      amount: updatedTx.amount,
+      payment_type: updatedTx.paymentType,
+      category: updatedTx.category,
+      is_recurring: Boolean(updatedTx.isRecurring),
+      date: updatedTx.date,
+      notes: updatedTx.notes || ''
+    };
+
+    if (updatedTx.isInstallment !== undefined) {
+      payload.is_installment = Boolean(updatedTx.isInstallment);
+    }
+    if (updatedTx.installmentsCount !== undefined) {
+      payload.installments_count = updatedTx.installmentsCount;
+    }
+    if (updatedTx.totalAmount !== undefined) {
+      payload.total_amount = updatedTx.totalAmount;
+    }
+
+    const { data, error } = await client
+      .from('transactions')
+      .update(payload)
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    return data ? data[0] : null;
+  } catch (err) {
+    console.error('Erro ao atualizar transação no Supabase:', err);
+    return null;
+  }
+};
+
 // --- FUNÇÕES DE USUÁRIOS NO SUPABASE ---
 
 // Busca usuário por e-mail no Supabase
