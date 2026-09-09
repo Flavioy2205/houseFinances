@@ -3,6 +3,7 @@ import {
   CreditCard, 
   DollarSign, 
   TrendingUp, 
+  TrendingDown,
   Calendar, 
   ShoppingBag, 
   Smile, 
@@ -10,6 +11,7 @@ import {
   Utensils, 
   Truck, 
   ArrowUpRight,
+  ArrowDownRight,
   Sparkles,
   PieChart as PieIcon,
   BarChart3,
@@ -55,6 +57,7 @@ const CATEGORY_LABELS = {
 
 export const Dashboard = ({ onNavigateToManual }) => {
   const { 
+    transactions,
     currentMonthTransactions, 
     selectedYearMonth,
     setSelectedYearMonth,
@@ -115,6 +118,60 @@ export const Dashboard = ({ onNavigateToManual }) => {
     { name: 'Débito', valor: debitTotalMonth, fill: '#10b981' },
     { name: 'PIX / Dinheiro', valor: pixTotalMonth, fill: '#06b6d4' }
   ];
+
+  // Dados comparativos mensais (Evolução Mês a Mês)
+  const monthlyHistoryData = React.useMemo(() => {
+    const monthsSorted = availableMonths.filter(m => m !== 'all').sort();
+    
+    return monthsSorted.map(ym => {
+      const [y, m] = ym.split('-');
+      const date = new Date(parseInt(y), parseInt(m) - 1, 1);
+      const monthShort = date.toLocaleDateString('pt-BR', { month: 'short', year: '2-digit' }).replace('.', '');
+      const formattedMonthName = monthShort.charAt(0).toUpperCase() + monthShort.slice(1);
+      
+      const monthTotal = transactions
+        .filter(t => t.date && t.date.substring(0, 7) === ym)
+        .reduce((acc, t) => acc + t.amount, 0);
+
+      const isCurrentSelected = ym === selectedYearMonth;
+
+      return {
+        yearMonth: ym,
+        name: formattedMonthName,
+        total: monthTotal,
+        fill: isCurrentSelected ? '#10b981' : '#3b82f6',
+        isSelected: isCurrentSelected
+      };
+    });
+  }, [transactions, availableMonths, selectedYearMonth]);
+
+  // Média de gasto mensal
+  const avgMonthlySpent = React.useMemo(() => {
+    if (monthlyHistoryData.length === 0) return 0;
+    const sum = monthlyHistoryData.reduce((acc, m) => acc + m.total, 0);
+    return sum / monthlyHistoryData.length;
+  }, [monthlyHistoryData]);
+
+  // Variação em relação ao mês anterior
+  const momVariation = React.useMemo(() => {
+    if (monthlyHistoryData.length < 2) return null;
+    const currentIndex = monthlyHistoryData.findIndex(m => m.yearMonth === selectedYearMonth);
+    if (currentIndex <= 0) return null;
+    
+    const prevTotal = monthlyHistoryData[currentIndex - 1].total;
+    const currentTotal = monthlyHistoryData[currentIndex].total;
+    
+    if (prevTotal === 0) return null;
+    
+    const diff = currentTotal - prevTotal;
+    const percent = ((diff / prevTotal) * 100).toFixed(1);
+    return {
+      diff,
+      percent,
+      isIncrease: diff > 0,
+      prevMonthName: monthlyHistoryData[currentIndex - 1].name
+    };
+  }, [monthlyHistoryData, selectedYearMonth]);
 
   return (
     <div className="dashboard-wrapper">
@@ -342,6 +399,107 @@ export const Dashboard = ({ onNavigateToManual }) => {
           </div>
         </div>
       )}
+
+      {/* CARD DEDICADO: COMPARATIVO DE GASTOS MÊS A MÊS */}
+      <div className="card" style={{ marginBottom: '1.75rem' }}>
+        <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div>
+            <h3 className="section-title" style={{ fontSize: '1.15rem' }}>
+              <TrendingUp size={22} color="#38bdf8" />
+              Comparativo de Gastos Mês a Mês (Evolução Temporal)
+            </h3>
+            <p style={{ fontSize: '0.82rem', color: '#9ca3af', marginTop: '0.2rem' }}>
+              Acompanhe o total acumulado em cada mês e clique em uma barra para alternar a visualização.
+            </p>
+          </div>
+
+          {momVariation && (
+            <div style={{
+              background: momVariation.isIncrease ? 'rgba(244, 63, 94, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+              border: momVariation.isIncrease ? '1px solid rgba(244, 63, 94, 0.3)' : '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '10px',
+              padding: '6px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              color: momVariation.isIncrease ? '#f43f5e' : '#10b981'
+            }}>
+              {momVariation.isIncrease ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+              <span>
+                {momVariation.isIncrease ? `+${momVariation.percent}%` : `${momVariation.percent}%`} vs. {momVariation.prevMonthName}
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Gráfico de Barras Comparativo */}
+        <div className="chart-container" style={{ marginTop: '1rem' }}>
+          {monthlyHistoryData.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={monthlyHistoryData} margin={{ top: 20, right: 20, left: 10, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.08)" />
+                <XAxis dataKey="name" stroke="#f8fafc" fontSize={12} tick={{ fill: '#f8fafc', fontWeight: 600 }} />
+                <YAxis stroke="#f8fafc" fontSize={12} tickFormatter={(v) => `R$${v}`} tick={{ fill: '#f8fafc' }} />
+                <Tooltip 
+                  formatter={(val) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val), 'Total Gasto']}
+                  labelFormatter={(label) => `Mês: ${label}`}
+                  contentStyle={{ background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.25)', borderRadius: '10px', color: '#ffffff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                  itemStyle={{ color: '#ffffff', fontWeight: 700 }}
+                  labelStyle={{ color: '#ffffff', fontWeight: 700 }}
+                />
+                <Bar dataKey="total" radius={[8, 8, 0, 0]} cursor="pointer">
+                  {monthlyHistoryData.map((entry, index) => (
+                    <Cell 
+                      key={`month-bar-${index}`} 
+                      fill={entry.isSelected ? '#10b981' : '#3b82f6'} 
+                      onClick={() => setSelectedYearMonth(entry.yearMonth)}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div style={{ textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
+              Nenhum histórico disponível para comparativo.
+            </div>
+          )}
+        </div>
+
+        {/* Minipainel de Indicadores Comparativos */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '1rem',
+          marginTop: '1.25rem',
+          paddingTop: '1rem',
+          borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+        }}>
+          <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+            <span style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'block' }}>Média de Gastos Mensal</span>
+            <strong style={{ fontSize: '1.05rem', color: '#60a5fa', fontFamily: 'var(--font-mono)' }}>
+              R$ {avgMonthlySpent.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </strong>
+          </div>
+
+          <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+            <span style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'block' }}>Mês Selecionado ({currentMonthName})</span>
+            <strong style={{ fontSize: '1.05rem', color: '#10b981', fontFamily: 'var(--font-mono)' }}>
+              R$ {totalSpentMonth.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </strong>
+          </div>
+
+          {momVariation && (
+            <div style={{ background: 'rgba(255, 255, 255, 0.02)', padding: '0.75rem 1rem', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
+              <span style={{ fontSize: '0.75rem', color: '#9ca3af', display: 'block' }}>Diferença vs. Mês Anterior</span>
+              <strong style={{ fontSize: '1.05rem', color: momVariation.isIncrease ? '#f43f5e' : '#10b981', fontFamily: 'var(--font-mono)' }}>
+                {momVariation.isIncrease ? '+' : ''} R$ {momVariation.diff.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </strong>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Main Grid: Charts & Breakdown */}
       <div className="dashboard-grid">
