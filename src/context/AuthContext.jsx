@@ -83,20 +83,24 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: 'Informe o e-mail e a senha.' };
     }
 
+    const config = getSupabaseConfig();
+
     let foundUser = null;
 
-    // 1. Consulta no Supabase Cloud pelo e-mail exato
-    const cloudRes = await fetchCloudUserFromDb(normalizedEmail);
-    if (cloudRes && cloudRes.success && cloudRes.user) {
-      foundUser = cloudRes.user;
-    }
+    if (config.isConfigured) {
+      // 1. Consulta no Supabase Cloud pelo e-mail exato
+      const cloudRes = await fetchCloudUserFromDb(normalizedEmail);
+      if (cloudRes && cloudRes.success && cloudRes.user) {
+        foundUser = cloudRes.user;
+      }
 
-    // 2. Se não encontrou no filtro por e-mail, busca na lista geral do Supabase
-    if (!foundUser) {
-      const sbUsers = await fetchCloudUsers();
-      if (sbUsers && Array.isArray(sbUsers)) {
-        foundUser = sbUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
-        if (foundUser) setUsersList(sbUsers);
+      // 2. Se não encontrou no filtro por e-mail, busca na lista geral do Supabase
+      if (!foundUser) {
+        const sbUsers = await fetchCloudUsers();
+        if (sbUsers && Array.isArray(sbUsers)) {
+          foundUser = sbUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
+          if (foundUser) setUsersList(sbUsers);
+        }
       }
     }
 
@@ -106,7 +110,13 @@ export const AuthProvider = ({ children }) => {
     }
 
     if (!foundUser) {
-      return { success: false, message: 'Nenhum usuário cadastrado com este e-mail no Supabase Cloud. Crie uma conta na aba "Criar Nova Conta".' };
+      if (!config.isConfigured) {
+        return { 
+          success: false, 
+          message: 'As credenciais do Supabase não foram encontradas neste navegador. Salve a URL e Key do Supabase na tela de Banco de Dados (acesso admin).' 
+        };
+      }
+      return { success: false, message: 'Nenhum usuário cadastrado com este e-mail no Supabase. Crie uma conta na aba "Criar Nova Conta".' };
     }
 
     const storedPassword = String(foundUser.password || '').trim();

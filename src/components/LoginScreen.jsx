@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Wallet, Mail, Lock, User, ArrowRight, Sparkles, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { getSupabaseConfig } from '../services/supabase';
 
 export const LoginScreen = () => {
   const { login, register, guestLogin } = useAuth();
@@ -20,17 +21,22 @@ export const LoginScreen = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  const config = getSupabaseConfig();
+
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!loginEmail || !loginPassword) {
+    const cleanEmail = loginEmail.toLowerCase().trim();
+    const cleanPassword = loginPassword.trim();
+
+    if (!cleanEmail || !cleanPassword) {
       setErrorMessage('Preencha o e-mail e a senha.');
       return;
     }
 
-    const res = await login(loginEmail, loginPassword);
+    const res = await login(cleanEmail, cleanPassword);
     if (!res.success) {
       setErrorMessage(res.message);
     }
@@ -41,27 +47,31 @@ export const LoginScreen = () => {
     setErrorMessage('');
     setSuccessMessage('');
 
-    if (!regName.trim()) {
+    const cleanName = regName.trim();
+    const cleanEmail = regEmail.toLowerCase().trim();
+    const cleanPassword = regPassword.trim();
+
+    if (!cleanName) {
       setErrorMessage('Informe seu nome completo.');
       return;
     }
 
-    if (!regEmail.trim()) {
+    if (!cleanEmail) {
       setErrorMessage('Informe seu e-mail.');
       return;
     }
 
-    if (regPassword.length < 3) {
+    if (cleanPassword.length < 3) {
       setErrorMessage('A senha deve conter no mínimo 3 caracteres.');
       return;
     }
 
-    if (regPassword !== regConfirmPassword) {
+    if (cleanPassword !== regConfirmPassword.trim()) {
       setErrorMessage('As senhas digitadas não coincidem.');
       return;
     }
 
-    const res = await register(regName, regEmail, regPassword);
+    const res = await register(cleanName, cleanEmail, cleanPassword);
     if (!res.success) {
       setErrorMessage(res.message);
     } else {
@@ -113,6 +123,31 @@ export const LoginScreen = () => {
             Gestão Financeira Residencial & WhatsApp Bot
           </p>
         </div>
+
+        {/* Banner de alerta caso o Supabase não esteja configurado no dispositivo */}
+        {!config.isConfigured && (
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.15)',
+            border: '1px solid rgba(245, 158, 11, 0.4)',
+            borderRadius: '12px',
+            padding: '0.85rem 1rem',
+            color: '#f59e0b',
+            fontSize: '0.82rem',
+            lineHeight: 1.4,
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '0.6rem'
+          }}>
+            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div>
+              <strong>Atenção: Credenciais Supabase não encontradas neste aparelho.</strong>
+              <div style={{ marginTop: '0.25rem', color: 'rgba(245, 158, 11, 0.9)' }}>
+                Se você já criou a conta pelo notebook, entre como admin ou certifique-se de que a URL e API Key do Supabase foram salvas.
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab Switcher (Entrar vs. Cadastrar) */}
         <div style={{
@@ -175,8 +210,8 @@ export const LoginScreen = () => {
             gap: '0.5rem',
             marginBottom: '1.25rem'
           }}>
-            <AlertCircle size={18} />
-            {errorMessage}
+            <AlertCircle size={18} style={{ flexShrink: 0 }} />
+            <span>{errorMessage}</span>
           </div>
         )}
 
@@ -193,8 +228,8 @@ export const LoginScreen = () => {
             gap: '0.5rem',
             marginBottom: '1.25rem'
           }}>
-            <CheckCircle2 size={18} />
-            {successMessage}
+            <CheckCircle2 size={18} style={{ flexShrink: 0 }} />
+            <span>{successMessage}</span>
           </div>
         )}
 
@@ -212,6 +247,10 @@ export const LoginScreen = () => {
                 placeholder="seu.email@exemplo.com"
                 value={loginEmail}
                 onChange={(e) => setLoginEmail(e.target.value)}
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect="off"
+                spellCheck={false}
                 required
               />
             </div>
@@ -227,6 +266,10 @@ export const LoginScreen = () => {
                 placeholder="••••••••"
                 value={loginPassword}
                 onChange={(e) => setLoginPassword(e.target.value)}
+                autoCapitalize="none"
+                autoComplete="current-password"
+                autoCorrect="off"
+                spellCheck={false}
                 required
               />
             </div>
@@ -266,6 +309,8 @@ export const LoginScreen = () => {
                 placeholder="Ex: Maria Silva"
                 value={regName}
                 onChange={(e) => setRegName(e.target.value)}
+                autoCapitalize="words"
+                autoComplete="name"
                 required
               />
             </div>
@@ -281,6 +326,10 @@ export const LoginScreen = () => {
                 placeholder="seu.email@exemplo.com"
                 value={regEmail}
                 onChange={(e) => setRegEmail(e.target.value)}
+                autoCapitalize="none"
+                autoComplete="email"
+                autoCorrect="off"
+                spellCheck={false}
                 required
               />
             </div>
@@ -296,6 +345,10 @@ export const LoginScreen = () => {
                 placeholder="Mínimo 3 caracteres"
                 value={regPassword}
                 onChange={(e) => setRegPassword(e.target.value)}
+                autoCapitalize="none"
+                autoComplete="new-password"
+                autoCorrect="off"
+                spellCheck={false}
                 required
               />
             </div>
@@ -311,6 +364,10 @@ export const LoginScreen = () => {
                 placeholder="Repita a mesma senha"
                 value={regConfirmPassword}
                 onChange={(e) => setRegConfirmPassword(e.target.value)}
+                autoCapitalize="none"
+                autoComplete="new-password"
+                autoCorrect="off"
+                spellCheck={false}
                 required
               />
             </div>
@@ -326,3 +383,4 @@ export const LoginScreen = () => {
     </div>
   );
 };
+
