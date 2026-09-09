@@ -81,9 +81,13 @@ export const Dashboard = ({ onNavigateToManual, onNavigateToWhatsapp }) => {
   const handleSaveBudget = (e) => {
     e.preventDefault();
     const val = parseFloat(budgetInput);
-    if (val && val > 0) {
+    if (val && val > 0 && val <= 1000000) {
       setMonthlyBudget(val);
       setIsEditingBudget(false);
+    } else if (val > 1000000) {
+      alert('O valor máximo permitido para o orçamento é R$ 1.000.000,00 (1 milhão).');
+    } else {
+      alert('Por favor, informe um valor de orçamento válido maior que zero.');
     }
   };
 
@@ -252,8 +256,10 @@ export const Dashboard = ({ onNavigateToManual, onNavigateToWhatsapp }) => {
                   <span>R$</span>
                   <input
                     type="number"
-                    step="50"
+                    step="any"
                     min="1"
+                    max="1000000"
+                    placeholder="Ex: 50000 ou 1000000"
                     className="form-input"
                     value={budgetInput}
                     onChange={(e) => setBudgetInput(e.target.value)}
@@ -261,9 +267,33 @@ export const Dashboard = ({ onNavigateToManual, onNavigateToWhatsapp }) => {
                     autoFocus
                   />
                 </div>
-                <span style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
-                  Este valor é usado para calcular o percentual de gastos e alerta de orçamento.
+                <span style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '0.3rem', display: 'block' }}>
+                  Ajustável para valores de até <strong>R$ 1.000.000,00 (1 milhão)</strong>. Usado para métricas e alertas de orçamento.
                 </span>
+
+                {/* Botões Rápidos de Atalho */}
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
+                  {[5000, 10000, 50000, 100000, 500000, 1000000].map(amt => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setBudgetInput(amt)}
+                      style={{
+                        fontSize: '0.75rem',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        background: Number(budgetInput) === amt ? 'rgba(245, 158, 11, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                        border: Number(budgetInput) === amt ? '1px solid #f59e0b' : '1px solid var(--border-color)',
+                        color: Number(budgetInput) === amt ? '#fbbf24' : '#9ca3af',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {amt >= 1000000 ? '1 Milhão' : `R$ ${(amt / 1000).toLocaleString()}k`}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
