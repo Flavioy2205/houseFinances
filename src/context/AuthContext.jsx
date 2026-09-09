@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { fetchPostgresLocalUsers, insertPostgresLocalUser, fetchUserFromDb } from '../services/postgresLocal';
-import { fetchCloudUsers, fetchCloudUserFromDb, insertCloudUser } from '../services/supabase';
+import { getSupabaseConfig, fetchCloudUsers, fetchCloudUserFromDb, insertCloudUser } from '../services/supabase';
 
 // Limpa chaves antigas de localStorage no navegador do usuário para garantir que o cadastro anterior seja completamente apagado
 if (typeof window !== 'undefined' && !localStorage.getItem('housefinances_reset_v3')) {
@@ -31,14 +31,20 @@ export const AuthProvider = ({ children }) => {
     return null;
   });
 
-  // Sincroniza lista de usuários com o banco (PostgreSQL Local ou Supabase Cloud) no carregamento
+  // Sincroniza lista de usuários com o banco (Prioridade: Supabase Cloud > PostgreSQL Local)
   useEffect(() => {
     const loadUsers = async () => {
-      let dbUsers = await fetchPostgresLocalUsers();
+      let dbUsers = null;
+
+      const config = getSupabaseConfig();
+      if (config.isConfigured) {
+        dbUsers = await fetchCloudUsers();
+      }
+
       if (!dbUsers || dbUsers.length === 0) {
-        const cloudUsers = await fetchCloudUsers();
-        if (cloudUsers && Array.isArray(cloudUsers)) {
-          dbUsers = cloudUsers;
+        const localUsers = await fetchPostgresLocalUsers();
+        if (localUsers && Array.isArray(localUsers)) {
+          dbUsers = localUsers;
         }
       }
 
@@ -65,7 +71,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
-  // Função de Login (Valida em tempo real no PostgreSQL ou Supabase Cloud)
+  // Função de Login (Valida em tempo real no Supabase Cloud ou PostgreSQL)
   const login = async (email, password) => {
     const normalizedEmail = String(email || '').toLowerCase().trim();
     const normalizedPassword = String(password || '').trim();
@@ -76,35 +82,38 @@ export const AuthProvider = ({ children }) => {
 
     let foundUser = null;
 
-    // 1. Consulta no PostgreSQL Local
-    const dbRes = await fetchUserFromDb(normalizedEmail);
-    if (dbRes && dbRes.success && dbRes.user) {
-      foundUser = dbRes.user;
-    }
-
-    // 2. Se não encontrou no Postgres Local, consulta no Supabase Cloud
-    if (!foundUser) {
+    // 1. Se Supabase estiver configurado, consulta no Supabase Cloud em primeiro lugar
+    const config = getSupabaseConfig();
+    if (config.isConfigured) {
       const cloudRes = await fetchCloudUserFromDb(normalizedEmail);
       if (cloudRes && cloudRes.success && cloudRes.user) {
         foundUser = cloudRes.user;
       }
     }
 
-    // 3. Se ainda não encontrou, busca na lista completa do PostgreSQL
+    // 2. Se não encontrou no Supabase, consulta no PostgreSQL Local
     if (!foundUser) {
-      const pgUsers = await fetchPostgresLocalUsers();
-      if (pgUsers && Array.isArray(pgUsers)) {
-        foundUser = pgUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
-        if (foundUser) setUsersList(pgUsers);
+      const dbRes = await fetchUserFromDb(normalizedEmail);
+      if (dbRes && dbRes.success && dbRes.user) {
+        foundUser = dbRes.user;
       }
     }
 
-    // 4. Se ainda não encontrou, busca na lista completa do Supabase Cloud
+    // 3. Se ainda não encontrou, busca na lista completa do Supabase Cloud
     if (!foundUser) {
       const sbUsers = await fetchCloudUsers();
       if (sbUsers && Array.isArray(sbUsers)) {
         foundUser = sbUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
         if (foundUser) setUsersList(sbUsers);
+      }
+    }
+
+    // 4. Se ainda não encontrou, busca na lista completa do PostgreSQL Local
+    if (!foundUser) {
+      const pgUsers = await fetchPostgresLocalUsers();
+      if (pgUsers && Array.isArray(pgUsers)) {
+        foundUser = pgUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
+        if (foundUser) setUsersList(pgUsers);
       }
     }
 

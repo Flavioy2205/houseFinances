@@ -34,31 +34,31 @@ export const FinanceProvider = ({ children }) => {
   const [dbStatusText, setDbStatusText] = useState('Armazenamento Local');
   const [isLoadingDB, setIsLoadingDB] = useState(false);
 
-  // Sincroniza dados com o Banco de Dados (Prioridade: Docker PostgreSQL 15 > Supabase > LocalStorage)
+  // Sincroniza dados com o Banco de Dados (Prioridade: Supabase Cloud > Docker PostgreSQL 15 > LocalStorage)
   const syncWithDatabase = async () => {
     setIsLoadingDB(true);
 
-    // 1. Tenta conectar com o PostgreSQL 15 Docker Local (porta 3002)
-    const localTest = await testPostgresLocalConnection();
-    if (localTest.success) {
-      const postgresData = await fetchPostgresLocalTransactions();
-      if (postgresData !== null) {
-        setTransactions(postgresData);
-        setDbMode('postgres_docker');
-        setDbStatusText('PostgreSQL 15 (Docker)');
+    // 1. Tenta Supabase Cloud em primeiro lugar se estiver configurado
+    const config = getSupabaseConfig();
+    if (config.isConfigured) {
+      const cloudData = await fetchCloudTransactions();
+      if (cloudData !== null && Array.isArray(cloudData)) {
+        setTransactions(cloudData);
+        setDbMode('supabase');
+        setDbStatusText('Supabase Cloud');
         setIsLoadingDB(false);
         return;
       }
     }
 
-    // 2. Se Docker não estiver rodando, tenta Supabase Cloud
-    const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      const cloudData = await fetchCloudTransactions();
-      if (cloudData !== null) {
-        setTransactions(cloudData);
-        setDbMode('supabase');
-        setDbStatusText('Supabase Cloud');
+    // 2. Se Supabase não estiver configurado ou falhar, tenta PostgreSQL 15 Docker Local
+    const localTest = await testPostgresLocalConnection();
+    if (localTest.success) {
+      const postgresData = await fetchPostgresLocalTransactions();
+      if (postgresData !== null && Array.isArray(postgresData)) {
+        setTransactions(postgresData);
+        setDbMode('postgres_docker');
+        setDbStatusText('PostgreSQL 15 (Docker)');
         setIsLoadingDB(false);
         return;
       }
@@ -73,17 +73,30 @@ export const FinanceProvider = ({ children }) => {
   useEffect(() => {
     syncWithDatabase();
 
-    // Sincroniza automaticamente a cada 5 segundos para que múltiplos aparelhos vejam os dados em tempo real
+    // Sincroniza automaticamente a cada 5 segundos no banco ativo (Supabase Cloud ou Postgres)
     const interval = setInterval(() => {
-      fetchPostgresLocalTransactions().then(data => {
-        if (data && Array.isArray(data)) {
-          setTransactions(data);
-          setDbMode('postgres_docker');
-          setDbStatusText('PostgreSQL 15 (Docker)');
-        }
-      }).catch(err => {
-        console.warn('Erro ao atualizar dados do banco em segundo plano:', err);
-      });
+      const config = getSupabaseConfig();
+      if (config.isConfigured) {
+        fetchCloudTransactions().then(data => {
+          if (data && Array.isArray(data)) {
+            setTransactions(data);
+            setDbMode('supabase');
+            setDbStatusText('Supabase Cloud');
+          }
+        }).catch(err => {
+          console.warn('Erro ao atualizar dados do Supabase em segundo plano:', err);
+        });
+      } else {
+        fetchPostgresLocalTransactions().then(data => {
+          if (data && Array.isArray(data)) {
+            setTransactions(data);
+            setDbMode('postgres_docker');
+            setDbStatusText('PostgreSQL 15 (Docker)');
+          }
+        }).catch(err => {
+          console.warn('Erro ao atualizar dados do banco em segundo plano:', err);
+        });
+      }
     }, 5000);
 
     return () => clearInterval(interval);
@@ -133,8 +146,13 @@ export const FinanceProvider = ({ children }) => {
 
     if (newAutoTransactions.length > 0) {
       setTransactions(prev => [...newAutoTransactions, ...prev]);
+      const config = getSupabaseConfig();
       newAutoTransactions.forEach(tx => {
-        insertPostgresLocalTransaction(tx);
+        if (config.isConfigured) {
+          insertCloudTransaction(tx);
+        } else {
+          insertPostgresLocalTransaction(tx);
+        }
       });
     }
   }, []);
@@ -160,13 +178,13 @@ export const FinanceProvider = ({ children }) => {
 
     setTransactions(prev => [tx, ...prev]);
 
-    // Tenta salvar sempre diretamente no PostgreSQL primeiro
-    const resPostgres = await insertPostgresLocalTransaction(tx);
-    if (!resPostgres) {
-      const config = getSupabaseConfig();
-      if (config.isConfigured) {
-        await insertCloudTransaction(tx);
-      }
+    const config = getSupabaseConfig();
+    if (config.isConfigured) {
+      // Salva prioritariamente no Supabase Cloud
+      await insertCloudTransaction(tx);
+    } else {
+      // Caso contrário, salva no PostgreSQL Local
+      await insertPostgresLocalTransaction(tx);
     }
 
     return tx;
@@ -175,12 +193,11 @@ export const FinanceProvider = ({ children }) => {
   const deleteTransaction = async (id) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
 
-    const resPostgres = await deletePostgresLocalTransaction(id);
-    if (!resPostgres) {
-      const config = getSupabaseConfig();
-      if (config.isConfigured) {
-        await deleteCloudTransaction(id);
-      }
+    const config = getSupabaseConfig();
+    if (config.isConfigured) {
+      await deleteCloudTransaction(id);
+    } else {
+      await deletePostgresLocalTransaction(id);
     }
   };
 
