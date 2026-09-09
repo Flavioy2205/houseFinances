@@ -1,9 +1,11 @@
 import React from 'react';
-import { Plus, MessageSquareShare, Calendar } from 'lucide-react';
+import { Plus, MessageSquareShare, LogOut, User } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
+import { useAuth } from '../context/AuthContext';
 
 export const Header = ({ title, subtitle, onOpenManual, onOpenWhatsapp }) => {
   const { totalSpentMonth } = useFinance();
+  const { user, logout } = useAuth();
   
   const handleShareWhatsapp = () => {
     const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
@@ -23,13 +25,29 @@ export const Header = ({ title, subtitle, onOpenManual, onOpenWhatsapp }) => {
       <div className="header-actions">
         <button className="btn btn-whatsapp" onClick={handleShareWhatsapp}>
           <MessageSquareShare size={18} />
-          Enviar Resumo no Zap
+          <span className="btn-text-desktop">Enviar Resumo no Zap</span>
         </button>
+
         <button className="btn btn-primary" onClick={onOpenManual}>
           <Plus size={18} />
-          Inserir Gasto
+          <span className="btn-text-desktop">Inserir Gasto</span>
+        </button>
+
+        <button 
+          className="btn btn-secondary" 
+          onClick={logout}
+          title="Sair da Conta"
+          style={{ 
+            color: '#f43f5e', 
+            borderColor: 'rgba(244, 63, 94, 0.3)',
+            background: 'rgba(244, 63, 94, 0.1)'
+          }}
+        >
+          <LogOut size={18} />
+          <span>Sair</span>
         </button>
       </div>
     </header>
   );
 };
+

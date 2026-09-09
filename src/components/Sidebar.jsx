@@ -79,21 +79,22 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
             onClick={logout}
             title="Sair da Conta"
             style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#6b7280',
+              background: 'rgba(244, 63, 94, 0.12)',
+              border: '1px solid rgba(244, 63, 94, 0.3)',
+              color: '#f43f5e',
               cursor: 'pointer',
-              padding: '6px',
-              borderRadius: '6px',
+              padding: '6px 12px',
+              borderRadius: '8px',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '0.4rem',
+              fontWeight: 700,
+              fontSize: '0.82rem',
               transition: 'all 0.15s ease'
             }}
-            onMouseOver={(e) => { e.currentTarget.style.color = '#f43f5e'; e.currentTarget.style.background = 'rgba(244, 63, 94, 0.15)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.color = '#6b7280'; e.currentTarget.style.background = 'transparent'; }}
           >
-            <LogOut size={18} />
+            <LogOut size={16} />
+            <span>Sair</span>
           </button>
         </div>
       </div>
