@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS transactions (
 );
 
 ALTER TABLE transactions ADD COLUMN IF NOT EXISTS user_id VARCHAR(255);
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS is_installment BOOLEAN DEFAULT false;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS installments_count INT;
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS total_amount NUMERIC(10,2);
 
 -- Tabela de Usuários Cadastrados
 CREATE TABLE IF NOT EXISTS users (

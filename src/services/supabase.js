@@ -78,6 +78,9 @@ export const fetchCloudTransactions = async (userEmailOrId = null) => {
       paymentType: row.payment_type,
       category: row.category,
       isRecurring: Boolean(row.is_recurring),
+      isInstallment: Boolean(row.is_installment || (row.notes && row.notes.includes('Parcelado'))),
+      installmentsCount: row.installments_count ? Number(row.installments_count) : null,
+      totalAmount: row.total_amount ? Number(row.total_amount) : null,
       date: row.date,
       notes: row.notes || '',
       createdAt: row.created_at

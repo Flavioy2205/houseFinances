@@ -164,6 +164,9 @@ export const FinanceProvider = ({ children }) => {
       ...newTx,
       category: newTx.category || 'outros',
       isRecurring: Boolean(newTx.isRecurring),
+      isInstallment: Boolean(newTx.isInstallment),
+      installmentsCount: newTx.installmentsCount ? Number(newTx.installmentsCount) : null,
+      totalAmount: newTx.totalAmount ? Number(newTx.totalAmount) : null,
       amount: parseFloat(newTx.amount) || 0
     };
 

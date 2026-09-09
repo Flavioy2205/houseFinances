@@ -135,11 +135,16 @@ export const TransactionList = () => {
                       {new Date(t.date + 'T00:00:00').toLocaleDateString('pt-BR')}
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600, color: '#f9fafb', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <div style={{ fontWeight: 600, color: '#f9fafb', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                         {t.description}
                         {(t.category === 'assinatura' || t.isRecurring) && (
                           <span title="Repete todo mês automaticamente" style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '0.7rem', color: '#f472b6', background: 'rgba(236, 72, 153, 0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(236, 72, 153, 0.3)' }}>
                             <Repeat size={11} /> Mensal
+                          </span>
+                        )}
+                        {(t.isInstallment || t.installmentsCount) && (
+                          <span title={`Parcelado em ${t.installmentsCount || ''} vezes`} style={{ display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '0.7rem', color: '#60a5fa', background: 'rgba(59, 130, 246, 0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                            <CreditCard size={11} /> {t.installmentsCount ? `${t.installmentsCount}x` : 'Parcelado'}
                           </span>
                         )}
                       </div>
@@ -159,8 +164,13 @@ export const TransactionList = () => {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <span className="amount-negative">
-                        - R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        - R$ {t.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
+                      {t.isInstallment && t.totalAmount && (
+                        <div style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '2px' }}>
+                          Parcela do Mês (Total R$ {t.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})
+                        </div>
+                      )}
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <button

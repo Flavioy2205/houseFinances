@@ -21,6 +21,8 @@ export const ExpenseForm = ({ onSuccess }) => {
   const [paymentType, setPaymentType] = useState('credito');
   const [category, setCategory] = useState('lazer');
   const [isRecurring, setIsRecurring] = useState(false);
+  const [isInstallment, setIsInstallment] = useState(false);
+  const [installmentsCount, setInstallmentsCount] = useState(2);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
@@ -47,14 +49,29 @@ export const ExpenseForm = ({ onSuccess }) => {
       return;
     }
 
+    const totalVal = parseFloat(amount);
+    const instCount = isInstallment ? Math.max(2, parseInt(installmentsCount) || 2) : 1;
+    const monthlyInstallmentVal = isInstallment ? Number((totalVal / instCount).toFixed(2)) : totalVal;
+
+    let finalNotes = notes.trim();
+    if (isInstallment) {
+      const formattedTotal = totalVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const formattedMonthly = monthlyInstallmentVal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const tag = `💳 Parcelado ${instCount}x de R$ ${formattedMonthly} (Total: R$ ${formattedTotal})`;
+      finalNotes = finalNotes ? `${finalNotes} | ${tag}` : tag;
+    }
+
     addTransaction({
-      amount: parseFloat(amount),
+      amount: monthlyInstallmentVal, // O valor que vai contar para o gasto do mês é o valor da parcela
+      totalAmount: totalVal,
+      isInstallment,
+      installmentsCount: isInstallment ? instCount : null,
       description: description.trim(),
       paymentType,
       category,
       isRecurring, // Respeita exatamente a escolha do checkbox (Checked ou Unchecked)
       date,
-      notes: notes.trim()
+      notes: finalNotes
     });
 
     setShowSuccessToast(true);
@@ -68,6 +85,8 @@ export const ExpenseForm = ({ onSuccess }) => {
     setDescription('');
     setNotes('');
     setIsRecurring(false);
+    setIsInstallment(false);
+    setInstallmentsCount(2);
   };
 
   return (
@@ -215,6 +234,82 @@ export const ExpenseForm = ({ onSuccess }) => {
           <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '0.4rem', paddingLeft: '2.1rem' }}>
             Opcional para <strong>Gastos Fixos</strong> (Aluguel, Luz) e <strong>Assinaturas</strong>. Se desmarcado, o gasto será lançado como uma despesa única apenas para este mês.
           </p>
+        </div>
+
+        {/* Option: Compra Parcelada */}
+        <div className="form-group full-width" style={{
+          background: isInstallment ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.02)',
+          border: isInstallment ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid var(--border-color)',
+          borderRadius: '12px',
+          padding: '1rem',
+          transition: 'all 0.2s ease'
+        }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer', fontWeight: 600, color: '#f9fafb' }}>
+            <input
+              type="checkbox"
+              checked={isInstallment}
+              onChange={(e) => setIsInstallment(e.target.checked)}
+              style={{ width: '18px', height: '18px', accentColor: '#3b82f6', cursor: 'pointer' }}
+            />
+            <CreditCard size={18} color="#3b82f6" />
+            <span>Gasto Parcelado (Dividir valor total em parcelas mensais)</span>
+          </label>
+
+          {isInstallment && (
+            <div style={{ marginTop: '1rem', paddingLeft: '2.1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#9ca3af', minWidth: '160px' }}>
+                  Número de Parcelas:
+                </label>
+                <input
+                  type="number"
+                  min="2"
+                  max="72"
+                  value={installmentsCount}
+                  onChange={(e) => setInstallmentsCount(Math.max(2, parseInt(e.target.value) || 2))}
+                  className="form-input"
+                  style={{ width: '110px' }}
+                />
+                <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>vezes (2x até 72x)</span>
+              </div>
+
+              {/* Card de Resumo e Prévia do Cálculo em Tempo Real */}
+              {parseFloat(amount) > 0 ? (
+                <div style={{
+                  background: 'rgba(15, 23, 42, 0.7)',
+                  border: '1px solid rgba(59, 130, 246, 0.35)',
+                  borderRadius: '10px',
+                  padding: '0.85rem 1.1rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.4rem'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Valor Total do Gasto:</span>
+                    <strong style={{ fontSize: '1rem', color: '#f9fafb' }}>
+                      R$ {parseFloat(amount).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: '0.4rem' }}>
+                    <span style={{ fontSize: '0.9rem', color: '#60a5fa', fontWeight: 600 }}>
+                      ⚡ Divisão ({installmentsCount}x parcelas):
+                    </span>
+                    <strong style={{ fontSize: '1.15rem', color: '#38bdf8', fontWeight: 700 }}>
+                      {installmentsCount}x de R$ {(parseFloat(amount) / Math.max(2, parseInt(installmentsCount) || 2)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / mês
+                    </strong>
+                  </div>
+                  <p style={{ fontSize: '0.78rem', color: '#10b981', margin: 0, marginTop: '0.25rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <CheckCircle2 size={14} />
+                    <span>O valor que vai contar para o gasto do mês é <strong>R$ {(parseFloat(amount) / Math.max(2, parseInt(installmentsCount) || 2)).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                  </p>
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.8rem', color: '#9ca3af', margin: 0 }}>
+                  💡 Digite o valor total acima para ver o valor exato de cada parcela.
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Field 6: Observações (Opcional) */}
