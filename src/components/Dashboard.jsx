@@ -56,6 +56,9 @@ const CATEGORY_LABELS = {
 export const Dashboard = ({ onNavigateToManual, onNavigateToWhatsapp }) => {
   const { 
     currentMonthTransactions, 
+    selectedYearMonth,
+    setSelectedYearMonth,
+    availableMonths,
     totalSpentMonth, 
     creditTotalMonth, 
     debitTotalMonth, 
@@ -69,7 +72,15 @@ export const Dashboard = ({ onNavigateToManual, onNavigateToWhatsapp }) => {
   const [isEditingBudget, setIsEditingBudget] = useState(false);
   const [budgetInput, setBudgetInput] = useState(monthlyBudget);
 
-  const currentMonthName = new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const formatMonthLabel = (ymStr) => {
+    if (ymStr === 'all') return '🌐 Todo o Histórico Completo';
+    const [y, m] = ymStr.split('-');
+    const date = new Date(parseInt(y), parseInt(m) - 1, 1);
+    const monthName = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  };
+
+  const currentMonthName = formatMonthLabel(selectedYearMonth);
   const formattedTotalMonth = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalSpentMonth);
   const formattedCredit = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(creditTotalMonth);
   const formattedDebit = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(debitTotalMonth);
@@ -107,6 +118,65 @@ export const Dashboard = ({ onNavigateToManual, onNavigateToWhatsapp }) => {
 
   return (
     <div className="dashboard-wrapper">
+      {/* Seletor de Histórico Mensal */}
+      <div className="card" style={{
+        background: 'rgba(15, 23, 42, 0.85)',
+        border: '1px solid rgba(59, 130, 246, 0.35)',
+        marginBottom: '1.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '1rem',
+        padding: '0.9rem 1.25rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{
+            background: 'rgba(59, 130, 246, 0.15)',
+            color: '#60a5fa',
+            padding: '8px',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <Calendar size={22} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.8rem', color: '#9ca3af', fontWeight: 500 }}>
+              Período de Referência dos Gastos:
+            </div>
+            <div style={{ fontSize: '1.05rem', fontWeight: 700, color: '#f9fafb', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span>{currentMonthName}</span>
+              {selectedYearMonth === `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}` ? (
+                <span style={{ fontSize: '0.7rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.15)', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 600 }}>
+                  🟢 Mês Atual (Vigente)
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.7rem', color: '#38bdf8', background: 'rgba(56, 189, 248, 0.15)', padding: '2px 8px', borderRadius: '6px', border: '1px solid rgba(56, 189, 248, 0.3)', fontWeight: 600 }}>
+                  📁 Histórico Salvo
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <label style={{ fontSize: '0.85rem', color: '#9ca3af', fontWeight: 600 }}>Mês / Período:</label>
+          <select
+            className="form-select"
+            style={{ width: 'auto', minWidth: '190px', paddingRight: '2rem', fontWeight: 600, background: 'rgba(30, 41, 59, 0.9)', borderColor: 'rgba(59, 130, 246, 0.4)' }}
+            value={selectedYearMonth}
+            onChange={(e) => setSelectedYearMonth(e.target.value)}
+          >
+            {availableMonths.map(ym => (
+              <option key={ym} value={ym}>
+                📅 {formatMonthLabel(ym)}
+              </option>
+            ))}
+            <option value="all">🌐 Todo o Histórico Completo</option>
+          </select>
+        </div>
+      </div>
       {/* Banner de atalho do WhatsApp */}
       <div className="card" style={{
         background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.12) 0%, rgba(16, 185, 129, 0.05) 100%)',

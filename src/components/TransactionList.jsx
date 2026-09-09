@@ -25,13 +25,30 @@ const CATEGORY_NAMES = {
 };
 
 export const TransactionList = () => {
-  const { transactions, deleteTransaction, resetData } = useFinance();
+  const { 
+    transactions, 
+    currentMonthTransactions,
+    selectedYearMonth,
+    setSelectedYearMonth,
+    availableMonths,
+    deleteTransaction, 
+    resetData 
+  } = useFinance();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterPayment, setFilterPayment] = useState('all');
   const [editingTransaction, setEditingTransaction] = useState(null);
 
-  const filteredTransactions = transactions.filter(t => {
+  const formatMonthLabel = (ymStr) => {
+    if (ymStr === 'all') return '🌐 Todo o Histórico Completo';
+    const [y, m] = ymStr.split('-');
+    const date = new Date(parseInt(y), parseInt(m) - 1, 1);
+    const monthName = date.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    return monthName.charAt(0).toUpperCase() + monthName.slice(1);
+  };
+
+  const filteredTransactions = currentMonthTransactions.filter(t => {
     const matchesSearch = t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           (t.notes && t.notes.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCategory = filterCategory === 'all' || t.category === filterCategory;
@@ -72,6 +89,21 @@ export const TransactionList = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
+          {/* Filter Month / Period */}
+          <select 
+            className="form-select" 
+            style={{ width: 'auto', fontWeight: 600, borderColor: 'rgba(59, 130, 246, 0.4)', background: 'rgba(30, 41, 59, 0.9)' }}
+            value={selectedYearMonth}
+            onChange={(e) => setSelectedYearMonth(e.target.value)}
+          >
+            {availableMonths.map(ym => (
+              <option key={ym} value={ym}>
+                📅 {formatMonthLabel(ym)}
+              </option>
+            ))}
+            <option value="all">🌐 Todo o Histórico Completo</option>
+          </select>
 
           {/* Filter Category */}
           <select 

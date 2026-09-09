@@ -287,15 +287,32 @@ export const FinanceProvider = ({ children }) => {
     };
   };
 
-  // Totals calculations
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth();
+  // Totals & Month Selection
+  const getCurrentYearMonth = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  };
 
-  const currentMonthTransactions = transactions.filter(t => {
-    const d = new Date(t.date + 'T00:00:00');
-    return d.getFullYear() === currentYear && d.getMonth() === currentMonth;
-  });
+  const [selectedYearMonth, setSelectedYearMonth] = useState(getCurrentYearMonth());
+
+  // Lista dinâmica de meses disponíveis (mês atual + meses com gastos cadastrados)
+  const availableMonths = React.useMemo(() => {
+    const monthSet = new Set();
+    monthSet.add(getCurrentYearMonth());
+    transactions.forEach(t => {
+      if (t.date && t.date.length >= 7) {
+        monthSet.add(t.date.substring(0, 7));
+      }
+    });
+    return Array.from(monthSet).sort().reverse();
+  }, [transactions]);
+
+  const currentMonthTransactions = React.useMemo(() => {
+    if (selectedYearMonth === 'all') return transactions;
+    return transactions.filter(t => t.date && t.date.substring(0, 7) === selectedYearMonth);
+  }, [transactions, selectedYearMonth]);
 
   const totalSpentMonth = currentMonthTransactions.reduce((acc, t) => acc + t.amount, 0);
   const creditTotalMonth = currentMonthTransactions
@@ -323,6 +340,9 @@ export const FinanceProvider = ({ children }) => {
     <FinanceContext.Provider value={{
       transactions,
       currentMonthTransactions,
+      selectedYearMonth,
+      setSelectedYearMonth,
+      availableMonths,
       totalSpentMonth,
       creditTotalMonth,
       debitTotalMonth,
