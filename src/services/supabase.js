@@ -127,12 +127,19 @@ export const fetchCloudUserFromDb = async (email) => {
     const { data, error } = await client
       .from('users')
       .select('*')
-      .eq('email', normalizedEmail);
+      .ilike('email', normalizedEmail);
 
-    if (error) throw error;
-    if (data && data.length > 0) {
+    if (!error && data && data.length > 0) {
       return { success: true, user: data[0] };
     }
+
+    // Fallback: busca a lista completa de usuários do Supabase e compara com toLowerCase()
+    const allRes = await client.from('users').select('*');
+    if (allRes.data && Array.isArray(allRes.data)) {
+      const found = allRes.data.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
+      if (found) return { success: true, user: found };
+    }
+
     return { success: true, user: null };
   } catch (err) {
     console.warn('Erro ao consultar usuário no Supabase:', err.message || err);

@@ -151,26 +151,28 @@ export const fetchUserFromDb = async (email) => {
     const normalizedEmail = String(email || '').toLowerCase().trim();
     if (!normalizedEmail) return { success: false, error: 'Informe um e-mail válido.' };
 
-    const res = await safeFetch(`/users?email=eq.${encodeURIComponent(normalizedEmail)}`);
+    // Tenta busca com case-insensitive (ilike)
+    const res = await safeFetch(`/users?email=ilike.${encodeURIComponent(normalizedEmail)}`);
     if (res && res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         return { success: true, user: data[0] };
       }
-      return { success: true, user: null };
     }
 
-    // Fallback: Busca a lista completa de usuários caso a query filtrada falhe
+    // Fallback: Busca a lista completa de usuários caso o filtro ilike não encontre diretamente
     const allUsersRes = await safeFetch('/users');
     if (allUsersRes && allUsersRes.ok) {
       const data = await allUsersRes.json();
       if (Array.isArray(data)) {
         const found = data.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
-        return { success: true, user: found || null };
+        if (found) {
+          return { success: true, user: found };
+        }
       }
     }
 
-    return { success: false, error: 'Erro de conexão com o banco de dados PostgreSQL. Certifique-se de que o container Docker está rodando (docker compose up -d).' };
+    return { success: false, error: 'Usuário não encontrado no PostgreSQL.' };
   } catch (err) {
     console.error('Erro ao consultar usuário no banco PostgreSQL:', err);
     return { success: false, error: 'Erro ao conectar à base de dados.' };

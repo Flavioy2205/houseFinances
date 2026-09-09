@@ -76,36 +76,45 @@ export const AuthProvider = ({ children }) => {
 
     let foundUser = null;
 
-    // 1. Tenta consultar primeiro no PostgreSQL Local
+    // 1. Consulta no PostgreSQL Local
     const dbRes = await fetchUserFromDb(normalizedEmail);
     if (dbRes && dbRes.success && dbRes.user) {
       foundUser = dbRes.user;
-    } else {
-      // 2. Se não encontrou no Postgres Local ou se estiver offline (ex: na Vercel), consulta no Supabase Cloud
+    }
+
+    // 2. Se não encontrou no Postgres Local, consulta no Supabase Cloud
+    if (!foundUser) {
       const cloudRes = await fetchCloudUserFromDb(normalizedEmail);
       if (cloudRes && cloudRes.success && cloudRes.user) {
         foundUser = cloudRes.user;
-      } else {
-        // 3. Fallback adicional na lista completa de usuários do Supabase ou Postgres
-        const dbUsers = (await fetchPostgresLocalUsers()) || (await fetchCloudUsers());
-        if (dbUsers && Array.isArray(dbUsers)) {
-          foundUser = dbUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
-          setUsersList(dbUsers);
-        } else {
-          // 4. Último fallback: cache no localStorage
-          foundUser = usersList.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
-          if (!foundUser) {
-            return { 
-              success: false, 
-              message: 'Não foi possível conectar ao banco de dados (PostgreSQL / Supabase). Verifique suas credenciais de banco ou tente novamente.' 
-            };
-          }
-        }
       }
     }
 
+    // 3. Se ainda não encontrou, busca na lista completa do PostgreSQL
     if (!foundUser) {
-      return { success: false, message: 'Nenhum usuário cadastrado com este e-mail na base de dados. Crie uma conta na aba "Criar Nova Conta".' };
+      const pgUsers = await fetchPostgresLocalUsers();
+      if (pgUsers && Array.isArray(pgUsers)) {
+        foundUser = pgUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
+        if (foundUser) setUsersList(pgUsers);
+      }
+    }
+
+    // 4. Se ainda não encontrou, busca na lista completa do Supabase Cloud
+    if (!foundUser) {
+      const sbUsers = await fetchCloudUsers();
+      if (sbUsers && Array.isArray(sbUsers)) {
+        foundUser = sbUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
+        if (foundUser) setUsersList(sbUsers);
+      }
+    }
+
+    // 5. Último fallback: cache local no navegador
+    if (!foundUser) {
+      foundUser = usersList.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
+    }
+
+    if (!foundUser) {
+      return { success: false, message: 'Nenhum usuário cadastrado com este e-mail. Verifique se digitou o e-mail corretamente ou crie uma conta na aba "Criar Nova Conta".' };
     }
 
     const storedPassword = String(foundUser.password || '').trim();
