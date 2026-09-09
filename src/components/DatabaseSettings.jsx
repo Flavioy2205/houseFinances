@@ -30,9 +30,10 @@ export const DatabaseSettings = () => {
   const [copiedDockerCmd, setCopiedDockerCmd] = useState(false);
   const [clearedToast, setClearedToast] = useState(false);
 
-  const sqlCode = `-- 1. Tabela de Transações (Gastos)
+  const sqlCode = `-- 1. Tabela de Transações (Gastos por Usuário)
 CREATE TABLE IF NOT EXISTS transactions (
   id TEXT PRIMARY KEY,
+  user_id TEXT,
   description TEXT NOT NULL,
   amount NUMERIC(10,2) NOT NULL,
   payment_type TEXT NOT NULL,
@@ -42,6 +43,9 @@ CREATE TABLE IF NOT EXISTS transactions (
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Adiciona a coluna user_id caso a tabela já exista sem ela
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS user_id TEXT;
 
 -- 2. Tabela de Usuários
 CREATE TABLE IF NOT EXISTS users (

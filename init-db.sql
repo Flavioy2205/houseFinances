@@ -1,8 +1,9 @@
 -- Script de inicialização automática do PostgreSQL 15 no Docker
 
--- Tabela de Transações (Gastos)
+-- Tabela de Transações (Gastos por Usuário)
 CREATE TABLE IF NOT EXISTS transactions (
   id VARCHAR(255) PRIMARY KEY,
+  user_id VARCHAR(255),
   description VARCHAR(255) NOT NULL,
   amount NUMERIC(10,2) NOT NULL,
   payment_type VARCHAR(50) NOT NULL,
@@ -12,6 +13,8 @@ CREATE TABLE IF NOT EXISTS transactions (
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE transactions ADD COLUMN IF NOT EXISTS user_id VARCHAR(255);
 
 -- Tabela de Usuários Cadastrados
 CREATE TABLE IF NOT EXISTS users (

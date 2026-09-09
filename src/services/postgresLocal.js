@@ -56,10 +56,13 @@ export const testPostgresLocalConnection = async () => {
   return { success: false, message: 'API do PostgreSQL 15 offline ou inacessível.' };
 };
 
-// Busca todas as transações salvas no PostgreSQL
-export const fetchPostgresLocalTransactions = async () => {
+// Busca todas as transações salvas no PostgreSQL (filtradas por user_id se fornecido)
+export const fetchPostgresLocalTransactions = async (userId = null) => {
   try {
-    const res = await safeFetch('/transactions?order=date.desc');
+    const endpoint = userId 
+      ? `/transactions?user_id=eq.${encodeURIComponent(userId)}&order=date.desc`
+      : '/transactions?order=date.desc';
+    const res = await safeFetch(endpoint);
     if (!res || !res.ok) return null;
 
     const data = await res.json();
@@ -67,6 +70,7 @@ export const fetchPostgresLocalTransactions = async () => {
 
     return data.map(row => ({
       id: row.id,
+      userId: row.user_id,
       description: row.description,
       amount: Number(row.amount),
       paymentType: row.payment_type,
@@ -83,10 +87,11 @@ export const fetchPostgresLocalTransactions = async () => {
 };
 
 // Insere transação no PostgreSQL
-export const insertPostgresLocalTransaction = async (tx) => {
+export const insertPostgresLocalTransaction = async (tx, userId = null) => {
   try {
     const payload = {
       id: tx.id,
+      user_id: userId || tx.userId || null,
       description: tx.description,
       amount: tx.amount,
       payment_type: tx.paymentType,
@@ -118,9 +123,12 @@ export const insertPostgresLocalTransaction = async (tx) => {
 };
 
 // Deleta transação no PostgreSQL
-export const deletePostgresLocalTransaction = async (id) => {
+export const deletePostgresLocalTransaction = async (id, userId = null) => {
   try {
-    const res = await safeFetch(`/transactions?id=eq.${encodeURIComponent(id)}`, {
+    const endpoint = userId
+      ? `/transactions?id=eq.${encodeURIComponent(id)}&user_id=eq.${encodeURIComponent(userId)}`
+      : `/transactions?id=eq.${encodeURIComponent(id)}`;
+    const res = await safeFetch(endpoint, {
       method: 'DELETE',
       headers: { 'Prefer': 'return=representation' }
     });

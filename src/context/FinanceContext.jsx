@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 import { 
   getSupabaseConfig, 
   fetchCloudTransactions, 
@@ -17,6 +18,9 @@ const FinanceContext = createContext();
 const getInitialTransactions = () => [];
 
 export const FinanceProvider = ({ children }) => {
+  const { user } = useAuth();
+  const activeUserId = user?.id || user?.email || null;
+
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem('housefinances_tx');
     if (saved) {
@@ -34,14 +38,21 @@ export const FinanceProvider = ({ children }) => {
   const [dbStatusText, setDbStatusText] = useState('Armazenamento Local');
   const [isLoadingDB, setIsLoadingDB] = useState(false);
 
-  // Sincroniza dados com o Banco de Dados (Prioridade: Supabase Cloud > Docker PostgreSQL 15 > LocalStorage)
-  const syncWithDatabase = async () => {
+  // Sincroniza dados com o Banco de Dados (Filtrados especificamente para o usuário ativo)
+  const syncWithDatabase = async (targetUserIdOverride = null) => {
     setIsLoadingDB(true);
+    const targetUserId = targetUserIdOverride || activeUserId;
+
+    if (!targetUserId) {
+      setTransactions([]);
+      setIsLoadingDB(false);
+      return;
+    }
 
     // 1. Tenta Supabase Cloud em primeiro lugar se estiver configurado
     const config = getSupabaseConfig();
     if (config.isConfigured) {
-      const cloudData = await fetchCloudTransactions();
+      const cloudData = await fetchCloudTransactions(targetUserId);
       if (cloudData !== null && Array.isArray(cloudData)) {
         setTransactions(cloudData);
         setDbMode('supabase');
@@ -54,7 +65,7 @@ export const FinanceProvider = ({ children }) => {
     // 2. Se Supabase não estiver configurado ou falhar, tenta PostgreSQL 15 Docker Local
     const localTest = await testPostgresLocalConnection();
     if (localTest.success) {
-      const postgresData = await fetchPostgresLocalTransactions();
+      const postgresData = await fetchPostgresLocalTransactions(targetUserId);
       if (postgresData !== null && Array.isArray(postgresData)) {
         setTransactions(postgresData);
         setDbMode('postgres_docker');
@@ -64,20 +75,37 @@ export const FinanceProvider = ({ children }) => {
       }
     }
 
-    // 3. Fallback no LocalStorage
+    // 3. Fallback no LocalStorage filtrando pelo usuário ativo
+    const saved = localStorage.getItem('housefinances_tx');
+    if (saved) {
+      try {
+        const allTx = JSON.parse(saved);
+        const userTx = targetUserId ? allTx.filter(t => !t.userId || t.userId === targetUserId) : allTx;
+        setTransactions(userTx);
+      } catch (e) { console.error(e); }
+    }
     setDbMode('local_storage');
     setDbStatusText('LocalStorage');
     setIsLoadingDB(false);
   };
 
+  // Re-sincroniza imediatamente quando o usuário logado mudar (ex: login/logout/troca de aparelho)
   useEffect(() => {
-    syncWithDatabase();
+    if (activeUserId) {
+      syncWithDatabase(activeUserId);
+    } else {
+      setTransactions([]);
+    }
+  }, [activeUserId]);
 
-    // Sincroniza automaticamente a cada 5 segundos no banco ativo (Supabase Cloud ou Postgres)
+  useEffect(() => {
+    if (!activeUserId) return;
+
+    // Sincroniza automaticamente a cada 5 segundos no banco ativo para o usuário logado
     const interval = setInterval(() => {
       const config = getSupabaseConfig();
       if (config.isConfigured) {
-        fetchCloudTransactions().then(data => {
+        fetchCloudTransactions(activeUserId).then(data => {
           if (data && Array.isArray(data)) {
             setTransactions(data);
             setDbMode('supabase');
@@ -87,7 +115,7 @@ export const FinanceProvider = ({ children }) => {
           console.warn('Erro ao atualizar dados do Supabase em segundo plano:', err);
         });
       } else {
-        fetchPostgresLocalTransactions().then(data => {
+        fetchPostgresLocalTransactions(activeUserId).then(data => {
           if (data && Array.isArray(data)) {
             setTransactions(data);
             setDbMode('postgres_docker');
@@ -100,10 +128,12 @@ export const FinanceProvider = ({ children }) => {
     }, 5000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [activeUserId]);
 
   // Auto-recurring subscription & fixed expense check for current month
   useEffect(() => {
+    if (!activeUserId) return;
+
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonthStr = String(now.getMonth() + 1).padStart(2, '0');
@@ -131,6 +161,7 @@ export const FinanceProvider = ({ children }) => {
         const day = rec.date ? rec.date.split('-')[2] || '01' : '01';
         const autoTx = {
           id: 'tx-auto-rec-' + Date.now() + Math.random().toString(36).substr(2, 5),
+          userId: activeUserId,
           description: rec.description,
           amount: rec.amount,
           paymentType: rec.paymentType,
@@ -149,13 +180,13 @@ export const FinanceProvider = ({ children }) => {
       const config = getSupabaseConfig();
       newAutoTransactions.forEach(tx => {
         if (config.isConfigured) {
-          insertCloudTransaction(tx);
+          insertCloudTransaction(tx, activeUserId);
         } else {
-          insertPostgresLocalTransaction(tx);
+          insertPostgresLocalTransaction(tx, activeUserId);
         }
       });
     }
-  }, []);
+  }, [activeUserId]);
 
   useEffect(() => {
     localStorage.setItem('housefinances_tx', JSON.stringify(transactions));
@@ -168,6 +199,7 @@ export const FinanceProvider = ({ children }) => {
   const addTransaction = async (newTx) => {
     const tx = {
       id: 'tx-' + Date.now(),
+      userId: activeUserId,
       date: new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString(),
       ...newTx,
@@ -180,11 +212,9 @@ export const FinanceProvider = ({ children }) => {
 
     const config = getSupabaseConfig();
     if (config.isConfigured) {
-      // Salva prioritariamente no Supabase Cloud
-      await insertCloudTransaction(tx);
+      await insertCloudTransaction(tx, activeUserId);
     } else {
-      // Caso contrário, salva no PostgreSQL Local
-      await insertPostgresLocalTransaction(tx);
+      await insertPostgresLocalTransaction(tx, activeUserId);
     }
 
     return tx;
@@ -195,9 +225,9 @@ export const FinanceProvider = ({ children }) => {
 
     const config = getSupabaseConfig();
     if (config.isConfigured) {
-      await deleteCloudTransaction(id);
+      await deleteCloudTransaction(id, activeUserId);
     } else {
-      await deletePostgresLocalTransaction(id);
+      await deletePostgresLocalTransaction(id, activeUserId);
     }
   };
 

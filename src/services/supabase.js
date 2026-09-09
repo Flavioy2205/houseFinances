@@ -43,22 +43,29 @@ export const testSupabaseConnection = async (url, key) => {
   }
 };
 
-// Busca todas as transações do banco Supabase
-export const fetchCloudTransactions = async () => {
+// Busca todas as transações do banco Supabase (filtrando por user_id se fornecido)
+export const fetchCloudTransactions = async (userId = null) => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   try {
-    const { data, error } = await client
+    let query = client
       .from('transactions')
       .select('*')
       .order('date', { ascending: false });
+
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     
     // Mapeia colunas do banco (snake_case) para objetos da app (camelCase)
     return data.map(row => ({
       id: row.id,
+      userId: row.user_id,
       description: row.description,
       amount: Number(row.amount),
       paymentType: row.payment_type,
@@ -74,14 +81,15 @@ export const fetchCloudTransactions = async () => {
   }
 };
 
-// Insere transação no banco Supabase
-export const insertCloudTransaction = async (tx) => {
+// Insere transação no banco Supabase (associando ao user_id)
+export const insertCloudTransaction = async (tx, userId = null) => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   try {
     const payload = {
       id: tx.id,
+      user_id: userId || tx.userId || null,
       description: tx.description,
       amount: tx.amount,
       payment_type: tx.paymentType,
@@ -101,12 +109,16 @@ export const insertCloudTransaction = async (tx) => {
 };
 
 // Exclui transação no banco Supabase
-export const deleteCloudTransaction = async (id) => {
+export const deleteCloudTransaction = async (id, userId = null) => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   try {
-    const { error } = await client.from('transactions').delete().eq('id', id);
+    let query = client.from('transactions').delete().eq('id', id);
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    const { error } = await query;
     if (error) throw error;
     return true;
   } catch (err) {
