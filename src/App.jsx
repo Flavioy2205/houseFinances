@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { Sidebar } from './components/Sidebar';
@@ -7,19 +7,12 @@ import { Dashboard } from './components/Dashboard';
 import { ExpenseForm } from './components/ExpenseForm';
 import { WhatsappIntegration } from './components/WhatsappIntegration';
 import { TransactionList } from './components/TransactionList';
-import { DatabaseSettings } from './components/DatabaseSettings';
 import { LoginScreen } from './components/LoginScreen';
 
 function MainApp() {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showManualModal, setShowManualModal] = useState(false);
-
-  useEffect(() => {
-    if (activeTab === 'database' && !isAdmin) {
-      setActiveTab('dashboard');
-    }
-  }, [activeTab, isAdmin]);
 
   if (!isAuthenticated) {
     return <LoginScreen />;
@@ -46,11 +39,6 @@ function MainApp() {
         return {
           title: 'Histórico & Extrato',
           subtitle: 'Consulte, filtre e exporte todas as suas despesas registradas.'
-        };
-      case 'database':
-        return {
-          title: 'Configuração do Banco de Dados',
-          subtitle: 'Gerencie e verifique as credenciais da API Supabase Cloud (24/7).'
         };
       default:
         return { title: 'HouseFinances', subtitle: 'Gestão Financeira Residencial' };
@@ -89,10 +77,6 @@ function MainApp() {
 
         {activeTab === 'extrato' && (
           <TransactionList />
-        )}
-
-        {activeTab === 'database' && isAdmin && (
-          <DatabaseSettings />
         )}
       </main>
 

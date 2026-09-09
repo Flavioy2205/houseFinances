@@ -9,8 +9,7 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'manual', label: 'Inserir Gasto', icon: PlusCircle },
     { id: 'whatsapp', label: 'WhatsApp Bot', icon: MessageSquare, badge: 'IA' },
-    { id: 'extrato', label: 'Histórico & Extrato', icon: ReceiptText },
-    ...(isAdmin ? [{ id: 'database', label: 'Banco de Dados', icon: Database, badge: 'Admin' }] : []),
+    { id: 'extrato', label: 'Histórico & Extrato', icon: ReceiptText }
   ];
 
   return (
