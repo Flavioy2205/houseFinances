@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 220" width="100%" height="100%">
+  <g fill="none" stroke="#10b981" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
+    <!-- House Frame -->
+    <path d="M 190 90 L 250 40 L 310 90 V 156 C 310 162 304 168 298 168 H 202 C 196 168 190 162 190 156 Z" />
+    <!-- Trend Arrow Line -->
+    <path d="M 192 140 C 218 140 228 116 252 116 C 278 116 290 83 322 43" stroke="#38bdf8" />
+    <!-- Arrowhead -->
+    <path d="M 294 43 H 322 V 71" stroke="#38bdf8" />
+  </g>
+  <!-- Family Silhouette -->
+  <circle cx="290" cy="124" r="6" fill="#f8fafc" />
+  <path d="M 290 132 C 285 132 283 136 283 143 V 166 H 297 V 143 C 297 136 295 132 290 132 Z" fill="#f8fafc" />
+  <circle cx="272" cy="136" r="4.5" fill="#f8fafc" />
+  <path d="M 272 142 C 268 142 267 145 267 150 V 166 H 277 V 150 C 277 145 276 142 272 142 Z" fill="#f8fafc" />
+
+  <!-- Text: houseFinances -->
+  <text x="250" y="205" text-anchor="middle" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-size="36" fill="#ffffff" letter-spacing="-1">
+    <tspan font-weight="800">house</tspan><tspan font-weight="400">Finances</tspan>
+  </text>
+</svg>

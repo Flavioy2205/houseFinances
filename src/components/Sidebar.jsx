@@ -2,6 +2,8 @@ import React from 'react';
 import { LayoutDashboard, PlusCircle, MessageSquare, ReceiptText, Wallet, LogOut, Database, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
+import { HouseFinancesLogo } from './HouseFinancesLogo';
+
 export const Sidebar = ({ activeTab, setActiveTab }) => {
   const { user, logout, isAdmin } = useAuth();
 
@@ -14,14 +16,14 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
   return (
     <aside className="sidebar">
       <div>
-        <div className="brand">
-          <div className="brand-icon">
-            <Wallet size={24} />
-          </div>
+        <div className="brand" style={{ gap: '0.5rem', padding: '0.5rem 0.25rem' }}>
+          <HouseFinancesLogo size={32} color="#10b981" arrowColor="#38bdf8" />
           <div>
-            <div className="brand-name">HouseFinances</div>
+            <div className="brand-name" style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'baseline' }}>
+              <span style={{ fontWeight: 800 }}>house</span>
+              <span style={{ fontWeight: 400 }}>Finances</span>
+            </div>
           </div>
-          <span className="brand-badge">Zap</span>
         </div>
 
         <nav>

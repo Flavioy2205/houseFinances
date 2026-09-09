@@ -3,6 +3,8 @@ import { Wallet, Mail, Lock, User, ArrowRight, Sparkles, CheckCircle2, AlertCirc
 import { useAuth } from '../context/AuthContext';
 import { getSupabaseConfig } from '../services/supabase';
 
+import { HouseFinancesLogo } from './HouseFinancesLogo';
+
 export const LoginScreen = () => {
   const { login, register, guestLogin } = useAuth();
   const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
@@ -102,25 +104,15 @@ export const LoginScreen = () => {
       }}>
         {/* Brand Header */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{
-            width: '54px',
-            height: '54px',
-            borderRadius: '16px',
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
-            marginBottom: '0.85rem'
-          }}>
-            <Wallet size={30} />
+          <div style={{ marginBottom: '0.85rem', display: 'flex', justifyContent: 'center' }}>
+            <HouseFinancesLogo size={64} color="#10b981" arrowColor="#38bdf8" />
           </div>
-          <h1 style={{ fontSize: '1.65rem', fontWeight: 800, color: '#f9fafb', letterSpacing: '-0.02em' }}>
-            HouseFinances
+          <h1 style={{ fontSize: '1.75rem', color: '#f9fafb', letterSpacing: '-0.02em', display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: '2px' }}>
+            <strong style={{ fontWeight: 800 }}>house</strong>
+            <span style={{ fontWeight: 400 }}>Finances</span>
           </h1>
           <p style={{ fontSize: '0.88rem', color: '#9ca3af', marginTop: '0.2rem' }}>
-            Gestão Financeira Residencial & WhatsApp Bot
+            Gestão Financeira Residencial
           </p>
         </div>
 
