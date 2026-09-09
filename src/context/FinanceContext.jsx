@@ -72,6 +72,21 @@ export const FinanceProvider = ({ children }) => {
 
   useEffect(() => {
     syncWithDatabase();
+
+    // Sincroniza automaticamente a cada 5 segundos para que múltiplos aparelhos vejam os dados em tempo real
+    const interval = setInterval(() => {
+      fetchPostgresLocalTransactions().then(data => {
+        if (data && Array.isArray(data)) {
+          setTransactions(data);
+          setDbMode('postgres_docker');
+          setDbStatusText('PostgreSQL 15 (Docker)');
+        }
+      }).catch(err => {
+        console.warn('Erro ao atualizar dados do banco em segundo plano:', err);
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Auto-recurring subscription & fixed expense check for current month
@@ -119,8 +134,7 @@ export const FinanceProvider = ({ children }) => {
     if (newAutoTransactions.length > 0) {
       setTransactions(prev => [...newAutoTransactions, ...prev]);
       newAutoTransactions.forEach(tx => {
-        if (dbMode === 'postgres_docker') insertPostgresLocalTransaction(tx);
-        else if (dbMode === 'supabase') insertCloudTransaction(tx);
+        insertPostgresLocalTransaction(tx);
       });
     }
   }, []);
@@ -133,7 +147,7 @@ export const FinanceProvider = ({ children }) => {
     localStorage.setItem('housefinances_budget', String(monthlyBudget));
   }, [monthlyBudget]);
 
-  const addTransaction = (newTx) => {
+  const addTransaction = async (newTx) => {
     const tx = {
       id: 'tx-' + Date.now(),
       date: new Date().toISOString().split('T')[0],
@@ -146,23 +160,27 @@ export const FinanceProvider = ({ children }) => {
 
     setTransactions(prev => [tx, ...prev]);
 
-    // Salva diretamente no PostgreSQL 15 (Docker) se ativo ou no Supabase
-    if (dbMode === 'postgres_docker') {
-      insertPostgresLocalTransaction(tx);
-    } else if (dbMode === 'supabase') {
-      insertCloudTransaction(tx);
+    // Tenta salvar sempre diretamente no PostgreSQL primeiro
+    const resPostgres = await insertPostgresLocalTransaction(tx);
+    if (!resPostgres) {
+      const config = getSupabaseConfig();
+      if (config.isConfigured) {
+        await insertCloudTransaction(tx);
+      }
     }
 
     return tx;
   };
 
-  const deleteTransaction = (id) => {
+  const deleteTransaction = async (id) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
 
-    if (dbMode === 'postgres_docker') {
-      deletePostgresLocalTransaction(id);
-    } else if (dbMode === 'supabase') {
-      deleteCloudTransaction(id);
+    const resPostgres = await deletePostgresLocalTransaction(id);
+    if (!resPostgres) {
+      const config = getSupabaseConfig();
+      if (config.isConfigured) {
+        await deleteCloudTransaction(id);
+      }
     }
   };
 

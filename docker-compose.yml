@@ -32,6 +32,8 @@ services:
       PGRST_DB_URI: postgres://postgres:postgrespassword@postgres:5432/housefinances
       PGRST_DB_SCHEMA: public
       PGRST_DB_ANON_ROLE: postgres
+      PGRST_SERVER_CORS_ALLOWED_ORIGINS: "*"
+      PGRST_SERVER_CORS_ALLOWED_HEADERS: "*"
     depends_on:
       - postgres
 

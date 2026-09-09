@@ -1,10 +1,10 @@
-const HTTPS_TUNNEL_URL = 'https://housefinances-postgrest-api.loca.lt';
+const HTTPS_TUNNEL_URL = 'https://pbyvm-189-69-210-76.run.pinggy-free.link';
 const LOCAL_URL = 'http://localhost:3002';
 
-// Retorna a URL base ativa (prioriza o Túnel HTTPS para funcionar perfeitamente na Vercel)
+// Retorna a URL base ativa (prioriza localhost em ambiente local)
 const getBaseUrl = () => {
-  if (typeof window !== 'undefined' && window.location.protocol === 'https:') {
-    return HTTPS_TUNNEL_URL;
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return LOCAL_URL;
   }
   return HTTPS_TUNNEL_URL;
 };
@@ -12,45 +12,55 @@ const getBaseUrl = () => {
 const getHeaders = (extraHeaders = {}) => ({
   'Bypass-Tunnel-Remainder': 'true',
   'bypass-tunnel-reminder': 'true',
+  'x-pinggy-no-warning': 'true',
+  'Pinggy-No-Warning': 'true',
   ...extraHeaders
 });
 
+// Helper de requisição resiliente com tratamento de erros de rede por URL
+export const safeFetch = async (path, options = {}) => {
+  const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'http:');
+  
+  const primaryUrl = isLocal ? LOCAL_URL : HTTPS_TUNNEL_URL;
+  const secondaryUrl = isLocal ? HTTPS_TUNNEL_URL : LOCAL_URL;
+
+  const requestHeaders = getHeaders(options.headers || {});
+
+  // 1. Tenta a URL primária
+  try {
+    const res = await fetch(`${primaryUrl}${path}`, { ...options, headers: requestHeaders });
+    if (res.ok) return res;
+  } catch (err) {
+    console.warn(`Erro de conexão na URL primária (${primaryUrl}${path}):`, err.message || err);
+  }
+
+  // 2. Fallback para a URL secundária se a primária falhar
+  if (primaryUrl !== secondaryUrl) {
+    try {
+      const res = await fetch(`${secondaryUrl}${path}`, { ...options, headers: requestHeaders });
+      if (res.ok) return res;
+    } catch (err) {
+      console.warn(`Erro de conexão na URL secundária (${secondaryUrl}${path}):`, err.message || err);
+    }
+  }
+
+  return null;
+};
+
 // Verifica se a API do PostgreSQL está acessível
 export const testPostgresLocalConnection = async () => {
-  try {
-    const baseUrl = getBaseUrl();
-    const res = await fetch(`${baseUrl}/transactions?limit=1`, { 
-      method: 'GET',
-      headers: getHeaders()
-    });
-    if (res.ok) {
-      return { success: true, message: 'Conectado com sucesso ao PostgreSQL 15 local via Túnel HTTPS!' };
-    }
-    // Fallback para localhost em ambiente local
-    const fallbackRes = await fetch(`${LOCAL_URL}/transactions?limit=1`, { method: 'GET' });
-    if (fallbackRes.ok) {
-      return { success: true, message: 'Conectado com sucesso ao PostgreSQL 15 local!' };
-    }
-    return { success: false, message: `Erro ao conectar na API do PostgreSQL (Status ${res.status})` };
-  } catch (err) {
-    return { success: false, message: 'API do PostgreSQL 15 offline.' };
+  const res = await safeFetch('/transactions?limit=1');
+  if (res && res.ok) {
+    return { success: true, message: 'Conectado com sucesso ao PostgreSQL 15!' };
   }
+  return { success: false, message: 'API do PostgreSQL 15 offline ou inacessível.' };
 };
 
 // Busca todas as transações salvas no PostgreSQL
 export const fetchPostgresLocalTransactions = async () => {
   try {
-    const baseUrl = getBaseUrl();
-    let res = await fetch(`${baseUrl}/transactions?order=date.desc`, { 
-      method: 'GET',
-      headers: getHeaders()
-    });
-
-    if (!res.ok) {
-      // Tenta fallback para localhost:3002 se estiver rodando local
-      res = await fetch(`${LOCAL_URL}/transactions?order=date.desc`, { method: 'GET' });
-      if (!res.ok) return null;
-    }
+    const res = await safeFetch('/transactions?order=date.desc');
+    if (!res || !res.ok) return null;
 
     const data = await res.json();
     if (!Array.isArray(data)) return null;
@@ -75,7 +85,6 @@ export const fetchPostgresLocalTransactions = async () => {
 // Insere transação no PostgreSQL
 export const insertPostgresLocalTransaction = async (tx) => {
   try {
-    const baseUrl = getBaseUrl();
     const payload = {
       id: tx.id,
       description: tx.description,
@@ -87,17 +96,17 @@ export const insertPostgresLocalTransaction = async (tx) => {
       notes: tx.notes || ''
     };
 
-    const res = await fetch(`${baseUrl}/transactions`, {
+    const res = await safeFetch('/transactions', {
       method: 'POST',
-      headers: getHeaders({ 
+      headers: { 
         'Content-Type': 'application/json',
         'Prefer': 'return=representation'
-      }),
+      },
       body: JSON.stringify(payload)
     });
 
-    if (!res.ok) {
-      console.error('Erro ao salvar no PostgreSQL:', await res.text());
+    if (!res || !res.ok) {
+      console.error('Erro ao salvar no PostgreSQL');
       return null;
     }
     const data = await res.json();
@@ -111,12 +120,11 @@ export const insertPostgresLocalTransaction = async (tx) => {
 // Deleta transação no PostgreSQL
 export const deletePostgresLocalTransaction = async (id) => {
   try {
-    const baseUrl = getBaseUrl();
-    const res = await fetch(`${baseUrl}/transactions?id=eq.${encodeURIComponent(id)}`, {
+    const res = await safeFetch(`/transactions?id=eq.${encodeURIComponent(id)}`, {
       method: 'DELETE',
-      headers: getHeaders({ 'Prefer': 'return=representation' })
+      headers: { 'Prefer': 'return=representation' }
     });
-    return res.ok;
+    return res ? res.ok : false;
   } catch (err) {
     console.error('Erro de rede ao deletar no PostgreSQL:', err);
     return false;
@@ -128,17 +136,8 @@ export const deletePostgresLocalTransaction = async (id) => {
 // Busca todos os usuários do banco PostgreSQL
 export const fetchPostgresLocalUsers = async () => {
   try {
-    const baseUrl = getBaseUrl();
-    let res = await fetch(`${baseUrl}/users`, { 
-      method: 'GET',
-      headers: getHeaders()
-    });
-
-    if (!res.ok) {
-      res = await fetch(`${LOCAL_URL}/users`, { method: 'GET' });
-      if (!res.ok) return null;
-    }
-
+    const res = await safeFetch('/users');
+    if (!res || !res.ok) return null;
     return await res.json();
   } catch (err) {
     console.warn('Erro ao buscar usuários no PostgreSQL:', err);
@@ -146,10 +145,41 @@ export const fetchPostgresLocalUsers = async () => {
   }
 };
 
+// Busca usuário por e-mail diretamente no banco PostgreSQL em tempo real
+export const fetchUserFromDb = async (email) => {
+  try {
+    const normalizedEmail = String(email || '').toLowerCase().trim();
+    if (!normalizedEmail) return { success: false, error: 'Informe um e-mail válido.' };
+
+    const res = await safeFetch(`/users?email=eq.${encodeURIComponent(normalizedEmail)}`);
+    if (res && res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return { success: true, user: data[0] };
+      }
+      return { success: true, user: null };
+    }
+
+    // Fallback: Busca a lista completa de usuários caso a query filtrada falhe
+    const allUsersRes = await safeFetch('/users');
+    if (allUsersRes && allUsersRes.ok) {
+      const data = await allUsersRes.json();
+      if (Array.isArray(data)) {
+        const found = data.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
+        return { success: true, user: found || null };
+      }
+    }
+
+    return { success: false, error: 'Erro de conexão com o banco de dados PostgreSQL. Certifique-se de que o container Docker está rodando (docker compose up -d).' };
+  } catch (err) {
+    console.error('Erro ao consultar usuário no banco PostgreSQL:', err);
+    return { success: false, error: 'Erro ao conectar à base de dados.' };
+  }
+};
+
 // Insere novo usuário no banco PostgreSQL
 export const insertPostgresLocalUser = async (user) => {
   try {
-    const baseUrl = getBaseUrl();
     const payload = {
       id: user.id,
       name: user.name,
@@ -157,29 +187,18 @@ export const insertPostgresLocalUser = async (user) => {
       password: user.password
     };
 
-    let res = await fetch(`${baseUrl}/users`, {
+    const res = await safeFetch('/users', {
       method: 'POST',
-      headers: getHeaders({
+      headers: {
         'Content-Type': 'application/json',
         'Prefer': 'return=representation'
-      }),
+      },
       body: JSON.stringify(payload)
     });
 
-    if (!res.ok) {
-      // Fallback para localhost caso tunnel apresente erro
-      res = await fetch(`${LOCAL_URL}/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Prefer': 'return=representation'
-        },
-        body: JSON.stringify(payload)
-      });
-      if (!res.ok) {
-        console.error('Erro ao salvar usuário no PostgreSQL:', await res.text());
-        return null;
-      }
+    if (!res || !res.ok) {
+      console.error('Erro ao salvar usuário no PostgreSQL');
+      return null;
     }
     const data = await res.json();
     return data ? data[0] : null;
@@ -188,3 +207,4 @@ export const insertPostgresLocalUser = async (user) => {
     return null;
   }
 };
+

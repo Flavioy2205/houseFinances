@@ -20,7 +20,7 @@ export const LoginScreen = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const handleLoginSubmit = (e) => {
+  const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
@@ -30,7 +30,7 @@ export const LoginScreen = () => {
       return;
     }
 
-    const res = login(loginEmail, loginPassword);
+    const res = await login(loginEmail, loginPassword);
     if (!res.success) {
       setErrorMessage(res.message);
     }
