@@ -19,7 +19,7 @@ const getInitialTransactions = () => [];
 
 export const FinanceProvider = ({ children }) => {
   const { user } = useAuth();
-  const activeUserId = user?.id || user?.email || null;
+  const activeUserId = user?.email ? String(user.email).toLowerCase().trim() : (user?.id || null);
 
   const [transactions, setTransactions] = useState(() => {
     const saved = localStorage.getItem('housefinances_tx');

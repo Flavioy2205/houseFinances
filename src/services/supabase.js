@@ -43,27 +43,31 @@ export const testSupabaseConnection = async (url, key) => {
   }
 };
 
-// Busca todas as transações do banco Supabase (filtrando por user_id se fornecido)
-export const fetchCloudTransactions = async (userId = null) => {
+// Busca todas as transações do banco Supabase (filtrando por userEmail ou userId)
+export const fetchCloudTransactions = async (userEmailOrId = null) => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   try {
-    let query = client
+    const { data, error } = await client
       .from('transactions')
       .select('*')
       .order('date', { ascending: false });
 
-    if (userId) {
-      query = query.eq('user_id', userId);
-    }
-
-    const { data, error } = await query;
-
     if (error) throw error;
-    
+
+    const target = userEmailOrId ? String(userEmailOrId).toLowerCase().trim() : null;
+
+    // Filtra gastos correspondentes ao usuário (e-mail, ID ou lançamentos legados sem user_id)
+    const filteredData = data.filter(row => {
+      if (!target) return true;
+      const rowUserId = row.user_id ? String(row.user_id).toLowerCase().trim() : '';
+      if (!rowUserId) return true; // Inclui gastos legados inseridos antes do campo user_id
+      return rowUserId === target;
+    });
+
     // Mapeia colunas do banco (snake_case) para objetos da app (camelCase)
-    return data.map(row => ({
+    return filteredData.map(row => ({
       id: row.id,
       userId: row.user_id,
       description: row.description,
@@ -82,14 +86,14 @@ export const fetchCloudTransactions = async (userId = null) => {
 };
 
 // Insere transação no banco Supabase (associando ao user_id)
-export const insertCloudTransaction = async (tx, userId = null) => {
+export const insertCloudTransaction = async (tx, userEmailOrId = null) => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   try {
     const payload = {
       id: tx.id,
-      user_id: userId || tx.userId || null,
+      user_id: userEmailOrId || tx.userId || null,
       description: tx.description,
       amount: tx.amount,
       payment_type: tx.paymentType,
@@ -109,15 +113,12 @@ export const insertCloudTransaction = async (tx, userId = null) => {
 };
 
 // Exclui transação no banco Supabase
-export const deleteCloudTransaction = async (id, userId = null) => {
+export const deleteCloudTransaction = async (id, userEmailOrId = null) => {
   const client = getSupabaseClient();
   if (!client) return null;
 
   try {
     let query = client.from('transactions').delete().eq('id', id);
-    if (userId) {
-      query = query.eq('user_id', userId);
-    }
     const { error } = await query;
     if (error) throw error;
     return true;
