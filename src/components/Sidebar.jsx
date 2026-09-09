@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, PlusCircle, MessageSquare, ReceiptText, Wallet, LogOut } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, MessageSquare, ReceiptText, Wallet, LogOut, Database } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Sidebar = ({ activeTab, setActiveTab }) => {
@@ -10,6 +10,7 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
     { id: 'manual', label: 'Inserir Gasto', icon: PlusCircle },
     { id: 'whatsapp', label: 'WhatsApp Bot', icon: MessageSquare, badge: 'IA' },
     { id: 'extrato', label: 'Histórico & Extrato', icon: ReceiptText },
+    { id: 'database', label: 'Banco de Dados', icon: Database, badge: 'Cloud / Local' },
   ];
 
   return (

@@ -7,6 +7,7 @@ import { Dashboard } from './components/Dashboard';
 import { ExpenseForm } from './components/ExpenseForm';
 import { WhatsappIntegration } from './components/WhatsappIntegration';
 import { TransactionList } from './components/TransactionList';
+import { DatabaseSettings } from './components/DatabaseSettings';
 import { LoginScreen } from './components/LoginScreen';
 
 function MainApp() {
@@ -39,6 +40,11 @@ function MainApp() {
         return {
           title: 'Histórico & Extrato',
           subtitle: 'Consulte, filtre e exporte todas as suas despesas registradas.'
+        };
+      case 'database':
+        return {
+          title: 'Configuração do Banco de Dados',
+          subtitle: 'Conecte ao Supabase Cloud (24/7 na Vercel) ou gerencie o container PostgreSQL 15 local.'
         };
       default:
         return { title: 'HouseFinances', subtitle: 'Gestão Financeira Residencial' };
@@ -77,6 +83,10 @@ function MainApp() {
 
         {activeTab === 'extrato' && (
           <TransactionList />
+        )}
+
+        {activeTab === 'database' && (
+          <DatabaseSettings />
         )}
       </main>
 
