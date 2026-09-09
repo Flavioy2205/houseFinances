@@ -8,7 +8,6 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'manual', label: 'Inserir Gasto', icon: PlusCircle },
-    { id: 'whatsapp', label: 'WhatsApp Bot', icon: MessageSquare, badge: 'IA' },
     { id: 'extrato', label: 'Histórico & Extrato', icon: ReceiptText }
   ];
 

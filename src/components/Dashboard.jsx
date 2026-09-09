@@ -53,7 +53,7 @@ const CATEGORY_LABELS = {
   outros: 'Outros'
 };
 
-export const Dashboard = ({ onNavigateToManual, onNavigateToWhatsapp }) => {
+export const Dashboard = ({ onNavigateToManual }) => {
   const { 
     currentMonthTransactions, 
     selectedYearMonth,
@@ -176,43 +176,6 @@ export const Dashboard = ({ onNavigateToManual, onNavigateToWhatsapp }) => {
             <option value="all">🌐 Todo o Histórico Completo</option>
           </select>
         </div>
-      </div>
-      {/* Banner de atalho do WhatsApp */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.12) 0%, rgba(16, 185, 129, 0.05) 100%)',
-        borderColor: 'rgba(37, 211, 102, 0.25)',
-        marginBottom: '1.75rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '1rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{
-            width: '44px',
-            height: '44px',
-            borderRadius: '12px',
-            background: '#25D366',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)'
-          }}>
-            <Sparkles size={22} />
-          </div>
-          <div>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#f9fafb' }}>Novo! Cadastro Instantâneo via WhatsApp Chat</h3>
-            <p style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
-              Envie mensagens como <em>"Netflix 55,90 crédito assinatura"</em> para lançar com recorrência automática.
-            </p>
-          </div>
-        </div>
-        <button className="btn btn-whatsapp" onClick={onNavigateToWhatsapp}>
-          Experimentar Bot WhatsApp
-          <ArrowUpRight size={16} />
-        </button>
       </div>
 
       {/* KPI Cards Grid */}

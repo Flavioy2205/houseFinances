@@ -3,7 +3,7 @@ import { Plus, MessageSquareShare, LogOut, User } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 
-export const Header = ({ title, subtitle, onOpenManual, onOpenWhatsapp }) => {
+export const Header = ({ title, subtitle, onOpenManual }) => {
   const { totalSpentMonth } = useFinance();
   const { user, logout } = useAuth();
   

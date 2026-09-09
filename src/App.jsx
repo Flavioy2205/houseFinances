@@ -5,7 +5,6 @@ import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { ExpenseForm } from './components/ExpenseForm';
-import { WhatsappIntegration } from './components/WhatsappIntegration';
 import { TransactionList } from './components/TransactionList';
 import { LoginScreen } from './components/LoginScreen';
 
@@ -30,11 +29,6 @@ function MainApp() {
           title: 'Cadastro Manual de Gasto',
           subtitle: 'Insira os dados da sua despesa: valor, cartão de crédito/débito e tipo de gasto.'
         };
-      case 'whatsapp':
-        return {
-          title: 'Integração WhatsApp Bot',
-          subtitle: 'Envie gastos em texto livre ou compartilhe resumos financeiros pelo WhatsApp.'
-        };
       case 'extrato':
         return {
           title: 'Histórico & Extrato',
@@ -56,23 +50,17 @@ function MainApp() {
           title={headerInfo.title}
           subtitle={headerInfo.subtitle}
           onOpenManual={() => setActiveTab('manual')}
-          onOpenWhatsapp={() => setActiveTab('whatsapp')}
         />
 
         {/* Dynamic Tab Content */}
         {activeTab === 'dashboard' && (
           <Dashboard
             onNavigateToManual={() => setActiveTab('manual')}
-            onNavigateToWhatsapp={() => setActiveTab('whatsapp')}
           />
         )}
 
         {activeTab === 'manual' && (
           <ExpenseForm onSuccess={() => setActiveTab('dashboard')} />
-        )}
-
-        {activeTab === 'whatsapp' && (
-          <WhatsappIntegration />
         )}
 
         {activeTab === 'extrato' && (
