@@ -6,12 +6,6 @@ import {
   insertCloudTransaction, 
   deleteCloudTransaction 
 } from '../services/supabase';
-import { 
-  fetchPostgresLocalTransactions, 
-  insertPostgresLocalTransaction, 
-  deletePostgresLocalTransaction,
-  testPostgresLocalConnection 
-} from '../services/postgresLocal';
 
 const FinanceContext = createContext();
 
@@ -34,11 +28,11 @@ export const FinanceProvider = ({ children }) => {
     return saved ? Number(saved) : 4000;
   });
 
-  const [dbMode, setDbMode] = useState('local'); // 'postgres_docker' | 'supabase' | 'local_storage'
-  const [dbStatusText, setDbStatusText] = useState('Armazenamento Local');
+  const [dbMode, setDbMode] = useState('supabase'); // 'supabase' | 'local_storage'
+  const [dbStatusText, setDbStatusText] = useState('Supabase Cloud');
   const [isLoadingDB, setIsLoadingDB] = useState(false);
 
-  // Sincroniza dados com o Banco de Dados (Filtrados especificamente para o usuário ativo)
+  // Sincroniza dados EXCLUSIVAMENTE com o Supabase Cloud (Filtrados especificamente para o usuário ativo)
   const syncWithDatabase = async (targetUserIdOverride = null) => {
     setIsLoadingDB(true);
     const targetUserId = targetUserIdOverride || activeUserId;
@@ -49,33 +43,16 @@ export const FinanceProvider = ({ children }) => {
       return;
     }
 
-    // 1. Tenta Supabase Cloud em primeiro lugar se estiver configurado
-    const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      const cloudData = await fetchCloudTransactions(targetUserId);
-      if (cloudData !== null && Array.isArray(cloudData)) {
-        setTransactions(cloudData);
-        setDbMode('supabase');
-        setDbStatusText('Supabase Cloud');
-        setIsLoadingDB(false);
-        return;
-      }
+    const cloudData = await fetchCloudTransactions(targetUserId);
+    if (cloudData !== null && Array.isArray(cloudData)) {
+      setTransactions(cloudData);
+      setDbMode('supabase');
+      setDbStatusText('Supabase Cloud');
+      setIsLoadingDB(false);
+      return;
     }
 
-    // 2. Se Supabase não estiver configurado ou falhar, tenta PostgreSQL 15 Docker Local
-    const localTest = await testPostgresLocalConnection();
-    if (localTest.success) {
-      const postgresData = await fetchPostgresLocalTransactions(targetUserId);
-      if (postgresData !== null && Array.isArray(postgresData)) {
-        setTransactions(postgresData);
-        setDbMode('postgres_docker');
-        setDbStatusText('PostgreSQL 15 (Docker)');
-        setIsLoadingDB(false);
-        return;
-      }
-    }
-
-    // 3. Fallback no LocalStorage filtrando pelo usuário ativo
+    // Fallback no LocalStorage em caso de desconexão offline
     const saved = localStorage.getItem('housefinances_tx');
     if (saved) {
       try {
@@ -85,7 +62,7 @@ export const FinanceProvider = ({ children }) => {
       } catch (e) { console.error(e); }
     }
     setDbMode('local_storage');
-    setDbStatusText('LocalStorage');
+    setDbStatusText('LocalStorage (Offline)');
     setIsLoadingDB(false);
   };
 
@@ -101,36 +78,23 @@ export const FinanceProvider = ({ children }) => {
   useEffect(() => {
     if (!activeUserId) return;
 
-    // Sincroniza automaticamente a cada 5 segundos no banco ativo para o usuário logado
+    // Sincroniza automaticamente a cada 5 segundos no Supabase Cloud para o usuário logado
     const interval = setInterval(() => {
-      const config = getSupabaseConfig();
-      if (config.isConfigured) {
-        fetchCloudTransactions(activeUserId).then(data => {
-          if (data && Array.isArray(data)) {
-            setTransactions(data);
-            setDbMode('supabase');
-            setDbStatusText('Supabase Cloud');
-          }
-        }).catch(err => {
-          console.warn('Erro ao atualizar dados do Supabase em segundo plano:', err);
-        });
-      } else {
-        fetchPostgresLocalTransactions(activeUserId).then(data => {
-          if (data && Array.isArray(data)) {
-            setTransactions(data);
-            setDbMode('postgres_docker');
-            setDbStatusText('PostgreSQL 15 (Docker)');
-          }
-        }).catch(err => {
-          console.warn('Erro ao atualizar dados do banco em segundo plano:', err);
-        });
-      }
+      fetchCloudTransactions(activeUserId).then(data => {
+        if (data && Array.isArray(data)) {
+          setTransactions(data);
+          setDbMode('supabase');
+          setDbStatusText('Supabase Cloud');
+        }
+      }).catch(err => {
+        console.warn('Erro ao atualizar dados do Supabase em segundo plano:', err);
+      });
     }, 5000);
 
     return () => clearInterval(interval);
   }, [activeUserId]);
 
-  // Auto-recurring subscription & fixed expense check for current month
+  // Lançamentos automáticos para assinaturas e gastos fixos recorrentes
   useEffect(() => {
     if (!activeUserId) return;
 
@@ -177,13 +141,8 @@ export const FinanceProvider = ({ children }) => {
 
     if (newAutoTransactions.length > 0) {
       setTransactions(prev => [...newAutoTransactions, ...prev]);
-      const config = getSupabaseConfig();
       newAutoTransactions.forEach(tx => {
-        if (config.isConfigured) {
-          insertCloudTransaction(tx, activeUserId);
-        } else {
-          insertPostgresLocalTransaction(tx, activeUserId);
-        }
+        insertCloudTransaction(tx, activeUserId);
       });
     }
   }, [activeUserId]);
@@ -210,12 +169,8 @@ export const FinanceProvider = ({ children }) => {
 
     setTransactions(prev => [tx, ...prev]);
 
-    const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      await insertCloudTransaction(tx, activeUserId);
-    } else {
-      await insertPostgresLocalTransaction(tx, activeUserId);
-    }
+    // Insere EXCLUSIVAMENTE no Supabase Cloud
+    await insertCloudTransaction(tx, activeUserId);
 
     return tx;
   };
@@ -223,12 +178,8 @@ export const FinanceProvider = ({ children }) => {
   const deleteTransaction = async (id) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
 
-    const config = getSupabaseConfig();
-    if (config.isConfigured) {
-      await deleteCloudTransaction(id, activeUserId);
-    } else {
-      await deletePostgresLocalTransaction(id, activeUserId);
-    }
+    // Deleta EXCLUSIVAMENTE no Supabase Cloud
+    await deleteCloudTransaction(id, activeUserId);
   };
 
   const updateTransaction = (id, updatedData) => {
@@ -390,3 +341,4 @@ export const FinanceProvider = ({ children }) => {
 };
 
 export const useFinance = () => useContext(FinanceContext);
+

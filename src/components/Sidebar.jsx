@@ -1,16 +1,16 @@
 import React from 'react';
-import { LayoutDashboard, PlusCircle, MessageSquare, ReceiptText, Wallet, LogOut, Database } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, MessageSquare, ReceiptText, Wallet, LogOut, Database, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const Sidebar = ({ activeTab, setActiveTab }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'manual', label: 'Inserir Gasto', icon: PlusCircle },
     { id: 'whatsapp', label: 'WhatsApp Bot', icon: MessageSquare, badge: 'IA' },
     { id: 'extrato', label: 'Histórico & Extrato', icon: ReceiptText },
-    { id: 'database', label: 'Banco de Dados', icon: Database, badge: 'Cloud / Local' },
+    ...(isAdmin ? [{ id: 'database', label: 'Banco de Dados', icon: Database, badge: 'Admin' }] : []),
   ];
 
   return (
@@ -44,11 +44,11 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
                         marginLeft: 'auto',
                         fontSize: '0.65rem',
                         fontWeight: 700,
-                        background: 'rgba(37, 211, 102, 0.2)',
-                        color: '#25D366',
+                        background: item.id === 'database' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(37, 211, 102, 0.2)',
+                        color: item.id === 'database' ? '#60a5fa' : '#25D366',
                         padding: '2px 6px',
                         borderRadius: '4px',
-                        border: '1px solid rgba(37, 211, 102, 0.4)'
+                        border: item.id === 'database' ? '1px solid rgba(59, 130, 246, 0.4)' : '1px solid rgba(37, 211, 102, 0.4)'
                       }}>
                         {item.badge}
                       </span>
@@ -66,8 +66,9 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden' }}>
             <div className="user-avatar">{user?.avatar || 'HF'}</div>
             <div className="user-info" style={{ overflow: 'hidden' }}>
-              <span className="user-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <span className="user-name" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {user?.name || 'Minhas Finanças'}
+                {isAdmin && <ShieldAlert size={14} color="#60a5fa" title="Administrador" />}
               </span>
               <span className="user-subtitle" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {user?.email || 'houseFinances v1.0'}
@@ -101,3 +102,4 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
     </aside>
   );
 };
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { FinanceProvider } from './context/FinanceContext';
 import { Sidebar } from './components/Sidebar';
@@ -11,9 +11,15 @@ import { DatabaseSettings } from './components/DatabaseSettings';
 import { LoginScreen } from './components/LoginScreen';
 
 function MainApp() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showManualModal, setShowManualModal] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'database' && !isAdmin) {
+      setActiveTab('dashboard');
+    }
+  }, [activeTab, isAdmin]);
 
   if (!isAuthenticated) {
     return <LoginScreen />;
@@ -44,7 +50,7 @@ function MainApp() {
       case 'database':
         return {
           title: 'Configuração do Banco de Dados',
-          subtitle: 'Conecte ao Supabase Cloud (24/7 na Vercel) ou gerencie o container PostgreSQL 15 local.'
+          subtitle: 'Gerencie e verifique as credenciais da API Supabase Cloud (24/7).'
         };
       default:
         return { title: 'HouseFinances', subtitle: 'Gestão Financeira Residencial' };
@@ -85,7 +91,7 @@ function MainApp() {
           <TransactionList />
         )}
 
-        {activeTab === 'database' && (
+        {activeTab === 'database' && isAdmin && (
           <DatabaseSettings />
         )}
       </main>
@@ -101,6 +107,7 @@ function MainApp() {
     </div>
   );
 }
+
 
 export default function App() {
   return (
