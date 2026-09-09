@@ -374,12 +374,14 @@ export const Dashboard = ({ onNavigateToManual }) => {
                     </Pie>
                     <Tooltip 
                       formatter={(val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)}
-                      contentStyle={{ background: '#111827', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', color: '#fff' }}
+                      contentStyle={{ background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.25)', borderRadius: '10px', color: '#ffffff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                      itemStyle={{ color: '#ffffff', fontWeight: 600 }}
+                      labelStyle={{ color: '#ffffff', fontWeight: 600 }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div style={{ width: '100%', textAlign: 'center', color: '#6b7280', padding: '2rem' }}>
+                <div style={{ width: '100%', textAlign: 'center', color: '#9ca3af', padding: '2rem' }}>
                   Nenhum gasto cadastrado no mês atual.
                 </div>
               )}
@@ -388,9 +390,9 @@ export const Dashboard = ({ onNavigateToManual }) => {
             {/* Categorias Legend Bar */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '0.5rem', justifyContent: 'center' }}>
               {Object.entries(categoryTotalsMonth).map(([cat, amount]) => (
-                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8rem', color: '#9ca3af' }}>
+                <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', color: '#f8fafc' }}>
                   <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: CATEGORY_COLORS[cat] || '#9ca3af' }} />
-                  <span>{CATEGORY_LABELS[cat]}: <strong>R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
+                  <span>{CATEGORY_LABELS[cat]}: <strong style={{ color: '#ffffff' }}>R$ {amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong></span>
                 </div>
               ))}
             </div>
@@ -407,12 +409,14 @@ export const Dashboard = ({ onNavigateToManual }) => {
             <div className="chart-container">
               <ResponsiveContainer width="100%" height={230}>
                 <BarChart data={paymentBarData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
-                  <XAxis dataKey="name" stroke="#9ca3af" fontSize={12} />
-                  <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `R$${v}`} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.08)" />
+                  <XAxis dataKey="name" stroke="#f8fafc" fontSize={12} tick={{ fill: '#f8fafc' }} />
+                  <YAxis stroke="#f8fafc" fontSize={12} tickFormatter={(v) => `R$${v}`} tick={{ fill: '#f8fafc' }} />
                   <Tooltip 
                     formatter={(val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val)}
-                    contentStyle={{ background: '#111827', borderColor: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', color: '#fff' }}
+                    contentStyle={{ background: '#0f172a', border: '1px solid rgba(255, 255, 255, 0.25)', borderRadius: '10px', color: '#ffffff', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                    itemStyle={{ color: '#ffffff', fontWeight: 600 }}
+                    labelStyle={{ color: '#ffffff', fontWeight: 600 }}
                   />
                   <Bar dataKey="valor" radius={[6, 6, 0, 0]}>
                     {paymentBarData.map((entry, index) => (
