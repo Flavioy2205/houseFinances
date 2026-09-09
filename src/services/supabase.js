@@ -114,3 +114,66 @@ export const deleteCloudTransaction = async (id) => {
     return false;
   }
 };
+
+// --- FUNÇÕES DE USUÁRIOS NO SUPABASE ---
+
+// Busca usuário por e-mail no Supabase
+export const fetchCloudUserFromDb = async (email) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const normalizedEmail = String(email || '').toLowerCase().trim();
+    const { data, error } = await client
+      .from('users')
+      .select('*')
+      .eq('email', normalizedEmail);
+
+    if (error) throw error;
+    if (data && data.length > 0) {
+      return { success: true, user: data[0] };
+    }
+    return { success: true, user: null };
+  } catch (err) {
+    console.warn('Erro ao consultar usuário no Supabase:', err.message || err);
+    return null;
+  }
+};
+
+// Busca todos os usuários no Supabase
+export const fetchCloudUsers = async () => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client.from('users').select('*');
+    if (error) throw error;
+    return data;
+  } catch (err) {
+    console.warn('Erro ao buscar lista de usuários no Supabase:', err);
+    return null;
+  }
+};
+
+// Insere novo usuário no Supabase
+export const insertCloudUser = async (user) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const payload = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password: user.password
+    };
+
+    const { data, error } = await client.from('users').insert([payload]).select();
+    if (error) throw error;
+    return data ? data[0] : null;
+  } catch (err) {
+    console.error('Erro ao cadastrar usuário no Supabase:', err);
+    return null;
+  }
+};
+

@@ -30,7 +30,7 @@ export const DatabaseSettings = () => {
   const [copiedDockerCmd, setCopiedDockerCmd] = useState(false);
   const [clearedToast, setClearedToast] = useState(false);
 
-  const sqlCode = `-- SQL para criar a tabela no Supabase ou PostgreSQL 15
+  const sqlCode = `-- 1. Tabela de Transações (Gastos)
 CREATE TABLE IF NOT EXISTS transactions (
   id TEXT PRIMARY KEY,
   description TEXT NOT NULL,
@@ -43,9 +43,23 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Habilitar RLS e permitir leitura/escrita
+-- 2. Tabela de Usuários
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  email TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Habilitar RLS e permitir leitura/escrita pública no Supabase
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Permitir acesso público às transações" ON transactions FOR ALL USING (true);`;
+DROP POLICY IF EXISTS "Permitir acesso público às transações" ON transactions;
+CREATE POLICY "Permitir acesso público às transações" ON transactions FOR ALL USING (true);
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir acesso público aos usuários" ON users;
+CREATE POLICY "Permitir acesso público aos usuários" ON users FOR ALL USING (true);`;
 
   const dockerCommand = `docker compose up -d`;
 

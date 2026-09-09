@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { fetchPostgresLocalUsers, insertPostgresLocalUser, fetchUserFromDb } from '../services/postgresLocal';
+import { fetchCloudUsers, fetchCloudUserFromDb, insertCloudUser } from '../services/supabase';
 
 // Limpa chaves antigas de localStorage no navegador do usuário para garantir que o cadastro anterior seja completamente apagado
 if (typeof window !== 'undefined' && !localStorage.getItem('housefinances_reset_v3')) {
@@ -30,20 +31,26 @@ export const AuthProvider = ({ children }) => {
     return null;
   });
 
-  // Sincroniza lista de usuários com o banco PostgreSQL no carregamento
+  // Sincroniza lista de usuários com o banco (PostgreSQL Local ou Supabase Cloud) no carregamento
   useEffect(() => {
-    const loadPostgresUsers = async () => {
-      const dbUsers = await fetchPostgresLocalUsers();
+    const loadUsers = async () => {
+      let dbUsers = await fetchPostgresLocalUsers();
+      if (!dbUsers || dbUsers.length === 0) {
+        const cloudUsers = await fetchCloudUsers();
+        if (cloudUsers && Array.isArray(cloudUsers)) {
+          dbUsers = cloudUsers;
+        }
+      }
+
       if (dbUsers !== null && Array.isArray(dbUsers)) {
         setUsersList(dbUsers);
-        // Se a lista do banco estiver vazia ou se o usuário logado não estiver no banco, desloga imediatamente
         if (dbUsers.length === 0 || (currentUser && !dbUsers.some(u => u.email.toLowerCase() === currentUser.email?.toLowerCase()))) {
           setCurrentUser(null);
           localStorage.removeItem('housefinances_current_user');
         }
       }
     };
-    loadPostgresUsers();
+    loadUsers();
   }, []);
 
   useEffect(() => {
@@ -58,7 +65,7 @@ export const AuthProvider = ({ children }) => {
     }
   }, [currentUser]);
 
-  // Função de Login (Valida em tempo real no PostgreSQL)
+  // Função de Login (Valida em tempo real no PostgreSQL ou Supabase Cloud)
   const login = async (email, password) => {
     const normalizedEmail = String(email || '').toLowerCase().trim();
     const normalizedPassword = String(password || '').trim();
@@ -67,24 +74,32 @@ export const AuthProvider = ({ children }) => {
       return { success: false, message: 'Informe o e-mail e a senha.' };
     }
 
-    // 1. Consulta o usuário diretamente na base de dados em tempo real
-    const dbRes = await fetchUserFromDb(normalizedEmail);
-
     let foundUser = null;
 
-    if (dbRes.success) {
+    // 1. Tenta consultar primeiro no PostgreSQL Local
+    const dbRes = await fetchUserFromDb(normalizedEmail);
+    if (dbRes && dbRes.success && dbRes.user) {
       foundUser = dbRes.user;
     } else {
-      // Caso a busca direta por filtro falhe, tenta buscar a lista geral do PostgreSQL
-      const dbUsers = await fetchPostgresLocalUsers();
-      if (dbUsers && Array.isArray(dbUsers)) {
-        foundUser = dbUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
-        setUsersList(dbUsers);
+      // 2. Se não encontrou no Postgres Local ou se estiver offline (ex: na Vercel), consulta no Supabase Cloud
+      const cloudRes = await fetchCloudUserFromDb(normalizedEmail);
+      if (cloudRes && cloudRes.success && cloudRes.user) {
+        foundUser = cloudRes.user;
       } else {
-        // Tenta fallback no cache local apenas se a base estiver inacessível
-        foundUser = usersList.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
-        if (!foundUser) {
-          return { success: false, message: dbRes.error || 'Erro de conexão ao acessar a base de dados PostgreSQL.' };
+        // 3. Fallback adicional na lista completa de usuários do Supabase ou Postgres
+        const dbUsers = (await fetchPostgresLocalUsers()) || (await fetchCloudUsers());
+        if (dbUsers && Array.isArray(dbUsers)) {
+          foundUser = dbUsers.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
+          setUsersList(dbUsers);
+        } else {
+          // 4. Último fallback: cache no localStorage
+          foundUser = usersList.find(u => String(u.email || '').toLowerCase().trim() === normalizedEmail);
+          if (!foundUser) {
+            return { 
+              success: false, 
+              message: 'Não foi possível conectar ao banco de dados (PostgreSQL / Supabase). Verifique suas credenciais de banco ou tente novamente.' 
+            };
+          }
         }
       }
     }
@@ -114,13 +129,14 @@ export const AuthProvider = ({ children }) => {
     return { success: true, user: userObj };
   };
 
-  // Função de Cadastro de Novo Usuário (SALVA DIRETO NO POSTGRESQL 15)
+  // Função de Cadastro de Novo Usuário (SALVA NO POSTGRESQL E NO SUPABASE CLOUD)
   const register = async (name, email, password) => {
     const normalizedEmail = email.toLowerCase().trim();
 
     // Verifica no banco de dados se o e-mail já existe
     const dbRes = await fetchUserFromDb(normalizedEmail);
-    if (dbRes.success && dbRes.user) {
+    const cloudRes = await fetchCloudUserFromDb(normalizedEmail);
+    if ((dbRes && dbRes.success && dbRes.user) || (cloudRes && cloudRes.success && cloudRes.user)) {
       return { success: false, message: 'Este e-mail já está cadastrado no sistema.' };
     }
     if (usersList.some(u => u.email.toLowerCase().trim() === normalizedEmail)) {
@@ -137,11 +153,9 @@ export const AuthProvider = ({ children }) => {
     // 1. Salva no estado local da aplicação
     setUsersList(prev => [...prev, newUser]);
 
-    // 2. Salva diretamente na tabela 'users' do banco de dados PostgreSQL 15 (Docker)
-    const dbResult = await insertPostgresLocalUser(newUser);
-    if (!dbResult) {
-      console.warn('Aviso: Não foi possível salvar o usuário no PostgreSQL local (verifique se a API em localhost:3002 está ativa).');
-    }
+    // 2. Tenta salvar no PostgreSQL local e no Supabase Cloud
+    await insertPostgresLocalUser(newUser);
+    await insertCloudUser(newUser);
 
     const userObj = {
       id: newUser.id,
