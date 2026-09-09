@@ -162,25 +162,31 @@ export const fetchCloudUsers = async () => {
   }
 };
 
-// Insere novo usuário no Supabase
+// Insere novo usuário no Supabase com diagnóstico completo
 export const insertCloudUser = async (user) => {
   const client = getSupabaseClient();
-  if (!client) return null;
+  if (!client) {
+    return { success: false, error: 'Supabase não está configurado neste dispositivo/navegador.' };
+  }
 
   try {
     const payload = {
       id: user.id,
-      name: user.name,
-      email: user.email,
-      password: user.password
+      name: user.name.trim(),
+      email: String(user.email).toLowerCase().trim(),
+      password: String(user.password).trim()
     };
 
     const { data, error } = await client.from('users').insert([payload]).select();
-    if (error) throw error;
-    return data ? data[0] : null;
+    if (error) {
+      console.error('Erro de inserção no Supabase:', error.message);
+      return { success: false, error: error.message };
+    }
+    return { success: true, user: data ? data[0] : null };
   } catch (err) {
-    console.error('Erro ao cadastrar usuário no Supabase:', err);
-    return null;
+    console.error('Exceção ao cadastrar usuário no Supabase:', err);
+    return { success: false, error: err.message || 'Erro de conexão com o Supabase.' };
   }
 };
+
 

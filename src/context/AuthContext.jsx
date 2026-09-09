@@ -150,13 +150,19 @@ export const AuthProvider = ({ children }) => {
   // Função de Cadastro de Novo Usuário (SALVA NO POSTGRESQL E NO SUPABASE CLOUD)
   const register = async (name, email, password) => {
     const normalizedEmail = email.toLowerCase().trim();
+    const normalizedPassword = String(password).trim();
 
     // Verifica no banco de dados se o e-mail já existe
-    const dbRes = await fetchUserFromDb(normalizedEmail);
     const cloudRes = await fetchCloudUserFromDb(normalizedEmail);
-    if ((dbRes && dbRes.success && dbRes.user) || (cloudRes && cloudRes.success && cloudRes.user)) {
-      return { success: false, message: 'Este e-mail já está cadastrado no sistema.' };
+    if (cloudRes && cloudRes.success && cloudRes.user) {
+      return { success: false, message: 'Este e-mail já está cadastrado no sistema (Supabase).' };
     }
+
+    const dbRes = await fetchUserFromDb(normalizedEmail);
+    if (dbRes && dbRes.success && dbRes.user) {
+      return { success: false, message: 'Este e-mail já está cadastrado no sistema (PostgreSQL).' };
+    }
+
     if (usersList.some(u => u.email.toLowerCase().trim() === normalizedEmail)) {
       return { success: false, message: 'Este e-mail já está cadastrado no sistema.' };
     }
@@ -165,15 +171,24 @@ export const AuthProvider = ({ children }) => {
       id: 'usr-' + Date.now(),
       name: name.trim(),
       email: normalizedEmail,
-      password: password
+      password: normalizedPassword
     };
 
     // 1. Salva no estado local da aplicação
     setUsersList(prev => [...prev, newUser]);
 
-    // 2. Tenta salvar no PostgreSQL local e no Supabase Cloud
+    // 2. Tenta salvar no Supabase Cloud e no PostgreSQL local
+    const cloudInsert = await insertCloudUser(newUser);
     await insertPostgresLocalUser(newUser);
-    await insertCloudUser(newUser);
+
+    const config = getSupabaseConfig();
+    if (config.isConfigured && cloudInsert && !cloudInsert.success) {
+      console.warn('Aviso Supabase:', cloudInsert.error);
+      return { 
+        success: false, 
+        message: `Erro ao salvar usuário no Supabase Cloud: ${cloudInsert.error}. Verifique se a tabela 'users' foi criada no SQL Editor do Supabase.` 
+      };
+    }
 
     const userObj = {
       id: newUser.id,
