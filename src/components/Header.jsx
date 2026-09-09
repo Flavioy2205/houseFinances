@@ -32,20 +32,6 @@ export const Header = ({ title, subtitle, onOpenManual, onOpenWhatsapp }) => {
           <Plus size={18} />
           <span className="btn-text-desktop">Inserir Gasto</span>
         </button>
-
-        <button 
-          className="btn btn-secondary" 
-          onClick={logout}
-          title="Sair da Conta"
-          style={{ 
-            color: '#f43f5e', 
-            borderColor: 'rgba(244, 63, 94, 0.3)',
-            background: 'rgba(244, 63, 94, 0.1)'
-          }}
-        >
-          <LogOut size={18} />
-          <span>Sair</span>
-        </button>
       </div>
     </header>
   );
