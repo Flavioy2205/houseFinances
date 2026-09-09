@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Retorna as credenciais salvas no LocalStorage ou variáveis de ambiente .env
+const DEFAULT_SUPABASE_URL = 'https://liktzggccdavgpaqaeoe.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_SxUgyn5a813TNrQde0SeBw_NBk4mjR0';
+
+// Retorna as credenciais salvas no LocalStorage, variáveis de ambiente .env ou valores padrão do projeto
 export const getSupabaseConfig = () => {
-  const url = localStorage.getItem('housefinances_supabase_url') || import.meta.env.VITE_SUPABASE_URL || '';
-  const key = localStorage.getItem('housefinances_supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const url = localStorage.getItem('housefinances_supabase_url') || import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const key = localStorage.getItem('housefinances_supabase_anon_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
   return { url, key, isConfigured: Boolean(url && key) };
 };
 
