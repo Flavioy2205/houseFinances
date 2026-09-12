@@ -104,9 +104,11 @@ export const Dashboard = ({ onNavigateToManual, onNavigateToContas }) => {
       const saved = localStorage.getItem('houseFinances_dashboard_layout_v1');
       if (saved) {
         const parsed = JSON.parse(saved);
-        const savedIds = parsed.map(c => c.id);
-        const missing = DEFAULT_CARD_LAYOUT.filter(c => !savedIds.includes(c.id));
-        return [...parsed, ...missing];
+        if (Array.isArray(parsed)) {
+          const savedIds = parsed.map(c => c ? c.id : null).filter(Boolean);
+          const missing = DEFAULT_CARD_LAYOUT.filter(c => !savedIds.includes(c.id));
+          return [...parsed, ...missing];
+        }
       }
     } catch (err) {
       console.error('Erro ao carregar layout do dashboard:', err);

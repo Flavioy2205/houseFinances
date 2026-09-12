@@ -8,6 +8,7 @@ import { ExpenseForm } from './components/ExpenseForm';
 import { TransactionList } from './components/TransactionList';
 import { BillsManagement } from './components/BillsManagement';
 import { LoginScreen } from './components/LoginScreen';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function MainApp() {
   const { isAuthenticated } = useAuth();
@@ -94,10 +95,12 @@ function MainApp() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <FinanceProvider>
-        <MainApp />
-      </FinanceProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <FinanceProvider>
+          <MainApp />
+        </FinanceProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
