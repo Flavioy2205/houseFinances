@@ -331,6 +331,92 @@ export const FinanceProvider = ({ children }) => {
     return acc;
   }, {});
 
+  const [bills, setBills] = useState(() => {
+    const saved = localStorage.getItem('housefinances_bills');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('housefinances_bills', JSON.stringify(bills));
+  }, [bills]);
+
+  const addBill = (newBill) => {
+    const bill = {
+      id: 'bill-' + Date.now() + Math.random().toString(36).substr(2, 5),
+      userId: activeUserId,
+      createdAt: new Date().toISOString(),
+      status: 'nao_pago',
+      paidAt: null,
+      paidAmount: null,
+      transactionId: null,
+      ...newBill,
+      amount: parseFloat(newBill.amount) || 0
+    };
+    setBills(prev => [bill, ...prev]);
+    return bill;
+  };
+
+  const updateBill = (id, updatedData) => {
+    setBills(prev => prev.map(b => b.id === id ? { ...b, ...updatedData } : b));
+  };
+
+  const deleteBill = (id) => {
+    setBills(prev => prev.filter(b => b.id !== id));
+  };
+
+  const payBill = async (id, paymentData = {}) => {
+    const bill = bills.find(b => b.id === id);
+    if (!bill) return;
+
+    const paidAt = paymentData.paidAt || new Date().toISOString().split('T')[0];
+    const paymentType = paymentData.paymentType || bill.paymentType || 'debito';
+    const paidAmount = parseFloat(paymentData.paidAmount || bill.amount);
+    const autoCreateTx = paymentData.autoCreateTransaction !== false;
+
+    let createdTxId = null;
+
+    if (autoCreateTx) {
+      const createdTx = await addTransaction({
+        description: `💳 ${bill.description}`,
+        amount: paidAmount,
+        category: bill.category || 'gasto_fixo',
+        paymentType: paymentType,
+        date: paidAt,
+        notes: `Pagamento associado da Conta a Pagar (Vencimento: ${bill.dueDate}). ${bill.notes || ''}`.trim()
+      });
+      createdTxId = createdTx?.id || null;
+    }
+
+    setBills(prev => prev.map(b => b.id === id ? {
+      ...b,
+      status: 'pago',
+      paidAt,
+      paymentType,
+      paidAmount,
+      transactionId: createdTxId
+    } : b));
+  };
+
+  const unpayBill = async (id, shouldDeleteTx = false) => {
+    const bill = bills.find(b => b.id === id);
+    if (!bill) return;
+
+    if (shouldDeleteTx && bill.transactionId) {
+      await deleteTransaction(bill.transactionId);
+    }
+
+    setBills(prev => prev.map(b => b.id === id ? {
+      ...b,
+      status: 'nao_pago',
+      paidAt: null,
+      paidAmount: null,
+      transactionId: null
+    } : b));
+  };
+
   // Subscriptions Total
   const subscriptionsTotalMonth = currentMonthTransactions
     .filter(t => t.category === 'assinatura' || t.isRecurring)
@@ -354,6 +440,12 @@ export const FinanceProvider = ({ children }) => {
       addTransaction,
       deleteTransaction,
       updateTransaction,
+      bills,
+      addBill,
+      updateBill,
+      deleteBill,
+      payBill,
+      unpayBill,
       clearAllData,
       resetData,
       parseWhatsappText,
@@ -368,4 +460,5 @@ export const FinanceProvider = ({ children }) => {
 };
 
 export const useFinance = () => useContext(FinanceContext);
+
 

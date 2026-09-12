@@ -6,6 +6,7 @@ import { Header } from './components/Header';
 import { Dashboard } from './components/Dashboard';
 import { ExpenseForm } from './components/ExpenseForm';
 import { TransactionList } from './components/TransactionList';
+import { BillsManagement } from './components/BillsManagement';
 import { LoginScreen } from './components/LoginScreen';
 
 function MainApp() {
@@ -23,6 +24,11 @@ function MainApp() {
         return {
           title: 'Dashboard Financeiro',
           subtitle: 'Acompanhe seus valores gastos no mês, gráfico por categoria e limite.'
+        };
+      case 'contas':
+        return {
+          title: 'Contas a Pagar',
+          subtitle: 'Gerencie datas de vencimento, quite cobranças e acompanhe o gráfico de contas pagas e a pagar.'
         };
       case 'manual':
         return {
@@ -56,7 +62,12 @@ function MainApp() {
         {activeTab === 'dashboard' && (
           <Dashboard
             onNavigateToManual={() => setActiveTab('manual')}
+            onNavigateToContas={() => setActiveTab('contas')}
           />
+        )}
+
+        {activeTab === 'contas' && (
+          <BillsManagement />
         )}
 
         {activeTab === 'manual' && (

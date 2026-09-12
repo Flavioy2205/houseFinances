@@ -5,6 +5,7 @@ import {
   TrendingUp, 
   TrendingDown,
   Calendar, 
+  CalendarClock,
   ShoppingBag, 
   Smile, 
   Home, 
@@ -65,6 +66,7 @@ const CATEGORY_LABELS = {
 
 const DEFAULT_CARD_LAYOUT = [
   { id: 'kpis', title: 'Indicadores Principais (KPIs)', visible: true, fullWidth: true },
+  { id: 'bills_summary', title: 'Resumo de Contas a Pagar do Mês', visible: true, fullWidth: true },
   { id: 'mom_comparison', title: 'Comparativo Mês a Mês (Evolução Temporal)', visible: true, fullWidth: true },
   { id: 'category_pie', title: 'Gastos por Categoria', visible: true, fullWidth: false },
   { id: 'payment_bar', title: 'Formas de Pagamento (Crédito, Débito, PIX)', visible: true, fullWidth: false },
@@ -72,7 +74,7 @@ const DEFAULT_CARD_LAYOUT = [
   { id: 'recent_transactions', title: 'Últimos Gastos Lançados', visible: true, fullWidth: false }
 ];
 
-export const Dashboard = ({ onNavigateToManual }) => {
+export const Dashboard = ({ onNavigateToManual, onNavigateToContas }) => {
   const { 
     transactions,
     currentMonthTransactions, 
@@ -86,7 +88,8 @@ export const Dashboard = ({ onNavigateToManual }) => {
     categoryTotalsMonth,
     subscriptionsTotalMonth,
     monthlyBudget,
-    setMonthlyBudget
+    setMonthlyBudget,
+    bills
   } = useFinance();
 
   const [isEditingBudget, setIsEditingBudget] = useState(false);
@@ -252,9 +255,81 @@ export const Dashboard = ({ onNavigateToManual }) => {
     };
   }, [monthlyHistoryData, selectedYearMonth]);
 
+  // Summary of bills for selected month
+  const monthBillsSummary = React.useMemo(() => {
+    if (!bills) return { pendingTotal: 0, pendingCount: 0, overdueCount: 0, paidCount: 0 };
+    const todayStr = new Date().toISOString().split('T')[0];
+    const filtered = selectedYearMonth === 'all' 
+      ? bills 
+      : bills.filter(b => b.dueDate && b.dueDate.substring(0, 7) === selectedYearMonth);
+
+    let pendingTotal = 0;
+    let pendingCount = 0;
+    let overdueCount = 0;
+    let paidCount = 0;
+
+    filtered.forEach(b => {
+      const isPaid = b.status === 'pago';
+      if (isPaid) {
+        paidCount++;
+      } else {
+        pendingTotal += b.amount;
+        pendingCount++;
+        if (b.dueDate < todayStr) overdueCount++;
+      }
+    });
+
+    return { pendingTotal, pendingCount, overdueCount, paidCount, total: filtered.length };
+  }, [bills, selectedYearMonth]);
+
   // Render individual cards by ID
   const renderCardContent = (cardId) => {
     switch (cardId) {
+      case 'bills_summary':
+        return (
+          <div className="card" style={{ marginBottom: 0, background: 'rgba(30, 41, 59, 0.75)', border: '1px solid rgba(245, 158, 11, 0.35)' }}>
+            <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', padding: '8px', borderRadius: '10px', display: 'flex' }}>
+                  <CalendarClock size={22} />
+                </div>
+                <div>
+                  <h3 className="section-title" style={{ fontSize: '1.05rem', margin: 0 }}>
+                    Contas a Pagar do Mês ({monthBillsSummary.pendingCount} pendente{monthBillsSummary.pendingCount !== 1 ? 's' : ''})
+                  </h3>
+                  <p style={{ fontSize: '0.8rem', color: '#9ca3af', margin: 0, marginTop: '2px' }}>
+                    Total a pagar: <strong style={{ color: '#fbbf24' }}>R$ {monthBillsSummary.pendingTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong> • {monthBillsSummary.paidCount} paga(s)
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                {monthBillsSummary.overdueCount > 0 && (
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f43f5e', background: 'rgba(244, 63, 94, 0.15)', border: '1px solid rgba(244, 63, 94, 0.3)', padding: '3px 8px', borderRadius: '6px' }}>
+                    ⚠️ {monthBillsSummary.overdueCount} em atraso
+                  </span>
+                )}
+                <button
+                  onClick={onNavigateToContas}
+                  className="btn"
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.2)',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    color: '#fbbf24',
+                    fontWeight: 700,
+                    fontSize: '0.82rem',
+                    padding: '6px 14px',
+                    borderRadius: '8px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Gerenciar Contas &rarr;
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+
       case 'kpis':
         return (
           <div className="kpi-grid" style={{ marginBottom: 0 }}>
