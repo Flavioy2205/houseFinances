@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, DollarSign, Tag, CreditCard, FileText, Check, Repeat, Layers } from 'lucide-react';
+import { X, Calendar, DollarSign, Tag, CreditCard, FileText, Check, Repeat, Layers, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 
 const CATEGORIES = [
@@ -21,6 +21,9 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
     return d.toISOString().split('T')[0];
   };
 
+  const getTodayStr = () => new Date().toISOString().split('T')[0];
+  const todayStr = getTodayStr();
+
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [dueDate, setDueDate] = useState(getTomorrowDate());
@@ -33,6 +36,16 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
   const [installmentsCount, setInstallmentsCount] = useState(10);
   const [valueMode, setValueMode] = useState('mensal'); // 'mensal' | 'total'
 
+  // Opções para Cadastro Retroativo (data no passado)
+  const isRetroactive = useMemo(() => {
+    return Boolean(dueDate && dueDate < todayStr);
+  }, [dueDate, todayStr]);
+
+  const [initialStatus, setInitialStatus] = useState('nao_pago'); // 'nao_pago' (Vencida/Atrasada) | 'pago' (Já Paga)
+  const [paidAtDate, setPaidAtDate] = useState('');
+  const [autoCreateTx, setAutoCreateTx] = useState(true);
+  const [paidRetroInstallmentsCount, setPaidRetroInstallmentsCount] = useState(0);
+
   useEffect(() => {
     if (billToEdit) {
       setDescription(billToEdit.description || '');
@@ -43,8 +56,16 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
       setNotes(billToEdit.notes || '');
       setIsAgreement(Boolean(billToEdit.isAgreement));
       setInstallmentsCount(billToEdit.installmentsCount || 10);
+      setInitialStatus(billToEdit.status || 'nao_pago');
+      setPaidAtDate(billToEdit.paidAt || billToEdit.dueDate || '');
     }
   }, [billToEdit]);
+
+  useEffect(() => {
+    if (isRetroactive && !paidAtDate) {
+      setPaidAtDate(dueDate);
+    }
+  }, [isRetroactive, dueDate]);
 
   // Função auxiliar para calcular data de vencimento dos meses futuros
   const calcDueDateForOffset = (startDueDateStr, monthOffset) => {
@@ -72,18 +93,23 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
     for (let i = 0; i < maxPreview; i++) {
       const calcDate = calcDueDateForOffset(dueDate, i);
       const formattedDate = new Date(calcDate + 'T00:00:00').toLocaleDateString('pt-BR');
+      const isPast = calcDate < todayStr;
+      const isPaid = (i < paidRetroInstallmentsCount) || (isPast && initialStatus === 'pago');
+
       preview.push({
         num: i + 1,
         totalNum: numInstallments,
         dateStr: formattedDate,
-        amountVal: monthlyVal
+        amountVal: monthlyVal,
+        isPast,
+        isPaid
       });
     }
 
     return preview;
-  }, [isAgreement, dueDate, amount, installmentsCount, valueMode]);
+  }, [isAgreement, dueDate, amount, installmentsCount, valueMode, todayStr, paidRetroInstallmentsCount, initialStatus]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const numericAmount = parseFloat(amount);
     if (!description.trim()) {
@@ -106,7 +132,12 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
         dueDate,
         category,
         paymentType,
-        notes: notes.trim()
+        notes: notes.trim(),
+        ...(isRetroactive ? {
+          status: initialStatus,
+          paidAt: initialStatus === 'pago' ? (paidAtDate || dueDate) : null,
+          paidAmount: initialStatus === 'pago' ? numericAmount : null
+        } : {})
       };
       updateBill(billToEdit.id, payload);
     } else if (isAgreement && parseInt(installmentsCount) > 1) {
@@ -119,6 +150,9 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
       for (let i = 0; i < numInstallments; i++) {
         const calculatedDueDate = calcDueDateForOffset(dueDate, i);
         const installmentLabel = `(${i + 1}/${numInstallments})`;
+        const isPastInstallment = calculatedDueDate < todayStr;
+        const isPaid = (i < paidRetroInstallmentsCount) || (isPastInstallment && initialStatus === 'pago');
+
         multiBills.push({
           description: `${description.trim()} ${installmentLabel}`,
           amount: parseFloat(monthlyAmount.toFixed(2)),
@@ -130,21 +164,30 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
           installmentIndex: i + 1,
           installmentsCount: numInstallments,
           totalAmount: valueMode === 'total' ? numericAmount : numericAmount * numInstallments,
+          status: isPaid ? 'pago' : 'nao_pago',
+          paidAt: isPaid ? calculatedDueDate : null,
+          paidAmount: isPaid ? parseFloat(monthlyAmount.toFixed(2)) : null,
+          autoCreateTransaction: isPaid ? autoCreateTx : false,
           notes: notes.trim()
         });
       }
 
-      addMultiMonthBills(multiBills);
+      await addMultiMonthBills(multiBills);
     } else {
+      const isPaid = isRetroactive && initialStatus === 'pago';
       const payload = {
         description: description.trim(),
         amount: numericAmount,
         dueDate,
         category,
         paymentType,
-        notes: notes.trim()
+        notes: notes.trim(),
+        status: isPaid ? 'pago' : 'nao_pago',
+        paidAt: isPaid ? (paidAtDate || dueDate) : null,
+        paidAmount: isPaid ? numericAmount : null,
+        autoCreateTransaction: isPaid ? autoCreateTx : false
       };
-      addBill(payload);
+      await addBill(payload);
     }
 
     onClose();
@@ -152,7 +195,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" style={{ maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
+      <div className="modal-content" style={{ maxWidth: '540px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
           <h3 className="section-title" style={{ fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <Calendar size={22} color="#f59e0b" />
@@ -213,6 +256,104 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
             </div>
           </div>
 
+          {/* Painel de Configuração de Data Retroativa */}
+          {isRetroactive && (
+            <div style={{
+              background: initialStatus === 'pago' ? 'rgba(16, 185, 129, 0.08)' : 'rgba(244, 63, 94, 0.08)',
+              border: initialStatus === 'pago' ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(244, 63, 94, 0.3)',
+              borderRadius: '12px',
+              padding: '0.85rem 1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.75rem'
+            }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: initialStatus === 'pago' ? '#34d399' : '#f43f5e', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Clock size={17} /> Data Retroativa Detectada ({new Date(dueDate + 'T00:00:00').toLocaleDateString('pt-BR')})
+              </div>
+              <div style={{ fontSize: '0.78rem', color: '#9ca3af' }}>
+                Como a data informada é no passado, escolha o status inicial desta conta:
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  background: initialStatus === 'nao_pago' ? 'rgba(244, 63, 94, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                  border: initialStatus === 'nao_pago' ? '1px solid #f43f5e' : '1px solid rgba(255, 255, 255, 0.08)',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: initialStatus === 'nao_pago' ? '#f43f5e' : '#f8fafc'
+                }}>
+                  <input
+                    type="radio"
+                    name="retroStatus"
+                    value="nao_pago"
+                    checked={initialStatus === 'nao_pago'}
+                    onChange={() => setInitialStatus('nao_pago')}
+                  />
+                  ⚠️ Vencida / Em Atraso
+                </label>
+
+                <label style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  background: initialStatus === 'pago' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                  border: initialStatus === 'pago' ? '1px solid #10b981' : '1px solid rgba(255, 255, 255, 0.08)',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  color: initialStatus === 'pago' ? '#34d399' : '#f8fafc'
+                }}>
+                  <input
+                    type="radio"
+                    name="retroStatus"
+                    value="pago"
+                    checked={initialStatus === 'pago'}
+                    onChange={() => setInitialStatus('pago')}
+                  />
+                  ✅ Já Paga no Passado
+                </label>
+              </div>
+
+              {/* Opção para Extrato se for Já Paga */}
+              {initialStatus === 'pago' && !isAgreement && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', alignItems: 'center' }}>
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.75rem', color: '#9ca3af' }}>Data do Pagamento Retroativo</label>
+                      <input
+                        type="date"
+                        className="form-input"
+                        value={paidAtDate || dueDate}
+                        onChange={(e) => setPaidAtDate(e.target.value)}
+                        style={{ fontSize: '0.8rem', padding: '6px 10px' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '1.2rem' }}>
+                      <input
+                        type="checkbox"
+                        id="autoCreateTx"
+                        checked={autoCreateTx}
+                        onChange={(e) => setAutoCreateTx(e.target.checked)}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                      />
+                      <label htmlFor="autoCreateTx" style={{ cursor: 'pointer', fontSize: '0.75rem', color: '#f8fafc' }}>
+                        Lançar no Extrato do mês retroativo
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Opção de Repetir por Meses / Acordo (Apenas em Novos Cadastros) */}
           {!billToEdit && (
             <div style={{
@@ -266,18 +407,51 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
                     </div>
                   </div>
 
+                  {/* Para acordos retroativos: Escolher quantia de parcelas retroativas já pagas */}
+                  {isRetroactive && (
+                    <div style={{ background: 'rgba(30, 41, 59, 0.8)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                      <label className="form-label" style={{ fontSize: '0.78rem', color: '#fbbf24', fontWeight: 600, marginBottom: '4px' }}>
+                        Parcelas Retroativas Já Quitadas (Amortizadas):
+                      </label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <input
+                          type="number"
+                          min="0"
+                          max={installmentsCount}
+                          className="form-input"
+                          value={paidRetroInstallmentsCount}
+                          onChange={(e) => setPaidRetroInstallmentsCount(Math.min(parseInt(installmentsCount) || 0, Math.max(0, parseInt(e.target.value) || 0)))}
+                          style={{ width: '90px', fontSize: '0.85rem' }}
+                        />
+                        <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                          de {installmentsCount} parcelas (amortiza R$ {(paidRetroInstallmentsCount * (valueMode === 'total' ? (parseFloat(amount) || 0) / (parseInt(installmentsCount) || 1) : (parseFloat(amount) || 0))).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} do saldo devedor)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Prévia das parcelas nos meses */}
                   {previewInstallments.length > 0 && (
                     <div style={{ background: 'rgba(15, 23, 42, 0.8)', borderRadius: '8px', padding: '0.75rem', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Layers size={13} /> Prévia dos Lançamentos nos Próximos Meses:
+                        <Layers size={13} /> Prévia dos Lançamentos nos Meses:
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.4rem', maxHeight: '110px', overflowY: 'auto' }}>
                         {previewInstallments.map((p) => (
-                          <div key={p.num} style={{ background: 'rgba(255, 255, 255, 0.03)', padding: '4px 8px', borderRadius: '5px', fontSize: '0.75rem', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                            <div style={{ color: '#9ca3af' }}>Parcela {p.num}/{p.totalNum}</div>
-                            <div style={{ color: '#10b981', fontWeight: 700 }}>R$ {p.amountVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                            <div style={{ color: '#f8fafc', fontSize: '0.7rem' }}>📅 {p.dateStr}</div>
+                          <div key={p.num} style={{
+                            background: p.isPaid ? 'rgba(16, 185, 129, 0.12)' : (p.isPast ? 'rgba(244, 63, 94, 0.12)' : 'rgba(255, 255, 255, 0.03)'),
+                            padding: '4px 8px',
+                            borderRadius: '5px',
+                            fontSize: '0.75rem',
+                            border: p.isPaid ? '1px solid rgba(16, 185, 129, 0.3)' : (p.isPast ? '1px solid rgba(244, 63, 94, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)')
+                          }}>
+                            <div style={{ color: '#9ca3af', display: 'flex', justifyContent: 'space-between' }}>
+                              <span>Parcela {p.num}/{p.totalNum}</span>
+                              {p.isPaid && <span style={{ color: '#34d399', fontWeight: 700 }}>✓ Paga</span>}
+                              {!p.isPaid && p.isPast && <span style={{ color: '#f43f5e', fontWeight: 700 }}>Vencida</span>}
+                            </div>
+                            <div style={{ color: p.isPaid ? '#10b981' : '#f8fafc', fontWeight: 700 }}>R$ {p.amountVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                            <div style={{ color: '#9ca3af', fontSize: '0.7rem' }}>📅 {p.dateStr}</div>
                           </div>
                         ))}
                       </div>

@@ -350,7 +350,21 @@ export const FinanceProvider = ({ children }) => {
     return acc;
   }, {});
 
-  const addBill = (newBill) => {
+  const addBill = async (newBill) => {
+    let createdTxId = newBill.transactionId || null;
+
+    if (newBill.status === 'pago' && newBill.autoCreateTransaction && !createdTxId) {
+      const createdTx = await addTransaction({
+        description: `💳 ${newBill.description}`,
+        amount: parseFloat(newBill.paidAmount || newBill.amount),
+        category: newBill.category || 'gasto_fixo',
+        paymentType: newBill.paymentType || 'debito',
+        date: newBill.paidAt || newBill.dueDate || new Date().toISOString().split('T')[0],
+        notes: `Pagamento retroativo de Conta a Pagar (Vencimento: ${newBill.dueDate}). ${newBill.notes || ''}`.trim()
+      });
+      createdTxId = createdTx?.id || null;
+    }
+
     const bill = {
       id: 'bill-' + Date.now() + Math.random().toString(36).substr(2, 5),
       userId: activeUserId,
@@ -358,7 +372,7 @@ export const FinanceProvider = ({ children }) => {
       status: 'nao_pago',
       paidAt: null,
       paidAmount: null,
-      transactionId: null,
+      transactionId: createdTxId,
       ...newBill,
       amount: parseFloat(newBill.amount) || 0
     };
@@ -366,18 +380,36 @@ export const FinanceProvider = ({ children }) => {
     return bill;
   };
 
-  const addMultiMonthBills = (billsList) => {
-    const createdBills = billsList.map((newBill, idx) => ({
-      id: 'bill-' + Date.now() + idx + '-' + Math.random().toString(36).substr(2, 5),
-      userId: activeUserId,
-      createdAt: new Date().toISOString(),
-      status: 'nao_pago',
-      paidAt: null,
-      paidAmount: null,
-      transactionId: null,
-      ...newBill,
-      amount: parseFloat(newBill.amount) || 0
-    }));
+  const addMultiMonthBills = async (billsList) => {
+    const createdBills = [];
+    for (let idx = 0; idx < billsList.length; idx++) {
+      const newBill = billsList[idx];
+      let createdTxId = newBill.transactionId || null;
+
+      if (newBill.status === 'pago' && newBill.autoCreateTransaction && !createdTxId) {
+        const createdTx = await addTransaction({
+          description: `💳 ${newBill.description}`,
+          amount: parseFloat(newBill.paidAmount || newBill.amount),
+          category: newBill.category || 'gasto_fixo',
+          paymentType: newBill.paymentType || 'debito',
+          date: newBill.paidAt || newBill.dueDate || new Date().toISOString().split('T')[0],
+          notes: `Pagamento retroativo de Acordo (Vencimento: ${newBill.dueDate}). ${newBill.notes || ''}`.trim()
+        });
+        createdTxId = createdTx?.id || null;
+      }
+
+      createdBills.push({
+        id: 'bill-' + Date.now() + idx + '-' + Math.random().toString(36).substr(2, 5),
+        userId: activeUserId,
+        createdAt: new Date().toISOString(),
+        status: 'nao_pago',
+        paidAt: null,
+        paidAmount: null,
+        transactionId: createdTxId,
+        ...newBill,
+        amount: parseFloat(newBill.amount) || 0
+      });
+    }
     setBills(prev => [...createdBills, ...prev]);
     return createdBills;
   };
