@@ -34,6 +34,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
   // Repetição por Meses / Acordo
   const [isAgreement, setIsAgreement] = useState(false);
   const [installmentsCount, setInstallmentsCount] = useState(10);
+  const [frequency, setFrequency] = useState('mensal'); // 'mensal' | 'semanal'
   const [valueMode, setValueMode] = useState('mensal'); // 'mensal' | 'total'
 
   // Opções para Cadastro Retroativo (data no passado)
@@ -56,6 +57,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
       setNotes(billToEdit.notes || '');
       setIsAgreement(Boolean(billToEdit.isAgreement));
       setInstallmentsCount(billToEdit.installmentsCount || 10);
+      setFrequency(billToEdit.frequency || 'mensal');
       setInitialStatus(billToEdit.status || 'nao_pago');
       setPaidAtDate(billToEdit.paidAt || billToEdit.dueDate || '');
     }
@@ -67,11 +69,22 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
     }
   }, [isRetroactive, dueDate]);
 
-  // Função auxiliar para calcular data de vencimento dos meses futuros
-  const calcDueDateForOffset = (startDueDateStr, monthOffset) => {
+  // Auxiliar para calcular data de vencimento (Mensal ou Semanal)
+  const calcDueDateForOffset = (startDueDateStr, offsetIndex, freq = 'mensal') => {
     if (!startDueDateStr) return '';
     const [year, month, day] = startDueDateStr.split('-').map(Number);
-    const targetDate = new Date(year, month - 1 + monthOffset, 1);
+
+    if (freq === 'semanal') {
+      const baseDate = new Date(year, month - 1, day);
+      baseDate.setDate(baseDate.getDate() + offsetIndex * 7);
+      const y = baseDate.getFullYear();
+      const m = String(baseDate.getMonth() + 1).padStart(2, '0');
+      const d = String(baseDate.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    // Mensal
+    const targetDate = new Date(year, month - 1 + offsetIndex, 1);
     const maxDaysInMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0).getDate();
     const targetDay = Math.min(day, maxDaysInMonth);
     const y = targetDate.getFullYear();
@@ -80,7 +93,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
     return `${y}-${m}-${d}`;
   };
 
-  // Cálculo da prévia de parcelas/meses
+  // Cálculo da prévia de parcelas (Mensais ou Semanais)
   const previewInstallments = useMemo(() => {
     if (!isAgreement || !dueDate || !amount || parseFloat(amount) <= 0) return [];
     const numInstallments = parseInt(installmentsCount) || 1;
@@ -91,7 +104,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
     const maxPreview = Math.min(numInstallments, 12); // Exibe até 12 na prévia
 
     for (let i = 0; i < maxPreview; i++) {
-      const calcDate = calcDueDateForOffset(dueDate, i);
+      const calcDate = calcDueDateForOffset(dueDate, i, frequency);
       const formattedDate = new Date(calcDate + 'T00:00:00').toLocaleDateString('pt-BR');
       const isPast = calcDate < todayStr;
       const isPaid = (i < paidRetroInstallmentsCount) || (isPast && initialStatus === 'pago');
@@ -102,12 +115,13 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
         dateStr: formattedDate,
         amountVal: monthlyVal,
         isPast,
-        isPaid
+        isPaid,
+        freq: frequency
       });
     }
 
     return preview;
-  }, [isAgreement, dueDate, amount, installmentsCount, valueMode, todayStr, paidRetroInstallmentsCount, initialStatus]);
+  }, [isAgreement, dueDate, amount, installmentsCount, frequency, valueMode, todayStr, paidRetroInstallmentsCount, initialStatus]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -141,14 +155,14 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
       };
       updateBill(billToEdit.id, payload);
     } else if (isAgreement && parseInt(installmentsCount) > 1) {
-      // Criação em lote para todos os meses do acordo
+      // Criação em lote para todas as parcelas (Semanais ou Mensais)
       const numInstallments = parseInt(installmentsCount);
       const monthlyAmount = valueMode === 'total' ? numericAmount / numInstallments : numericAmount;
       const agreementId = 'agreement-' + Date.now();
 
       const multiBills = [];
       for (let i = 0; i < numInstallments; i++) {
-        const calculatedDueDate = calcDueDateForOffset(dueDate, i);
+        const calculatedDueDate = calcDueDateForOffset(dueDate, i, frequency);
         const installmentLabel = `(${i + 1}/${numInstallments})`;
         const isPastInstallment = calculatedDueDate < todayStr;
         const isPaid = (i < paidRetroInstallmentsCount) || (isPastInstallment && initialStatus === 'pago');
@@ -163,6 +177,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
           agreementId,
           installmentIndex: i + 1,
           installmentsCount: numInstallments,
+          frequency,
           totalAmount: valueMode === 'total' ? numericAmount : numericAmount * numInstallments,
           status: isPaid ? 'pago' : 'nao_pago',
           paidAt: isPaid ? calculatedDueDate : null,
@@ -374,15 +389,15 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
                   style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                 />
                 <label htmlFor="isAgreement" style={{ cursor: 'pointer', fontWeight: 700, fontSize: '0.9rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Repeat size={16} /> Repetir por vários meses (Acordo / Parcelamento)
+                  <Repeat size={16} /> Repetir por várias parcelas (Acordo / Parcelamento)
                 </label>
               </div>
 
               {isAgreement && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', paddingTop: '0.4rem', borderTop: '1px solid rgba(245, 158, 11, 0.15)' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.65rem' }}>
                     <div>
-                      <label className="form-label" style={{ fontSize: '0.8rem', color: '#f8fafc', fontWeight: 600 }}>Número de Meses / Parcelas</label>
+                      <label className="form-label" style={{ fontSize: '0.78rem', color: '#f8fafc', fontWeight: 600 }}>Nº de Parcelas</label>
                       <input
                         type="number"
                         min="2"
@@ -395,14 +410,26 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
                     </div>
 
                     <div>
-                      <label className="form-label" style={{ fontSize: '0.8rem', color: '#f8fafc', fontWeight: 600 }}>Tipo de Valor Digitado</label>
+                      <label className="form-label" style={{ fontSize: '0.78rem', color: '#f8fafc', fontWeight: 600 }}>Periodicidade</label>
+                      <select
+                        className="form-select"
+                        value={frequency}
+                        onChange={(e) => setFrequency(e.target.value)}
+                      >
+                        <option value="mensal">📅 Mensal (1x Mês)</option>
+                        <option value="semanal">📆 Semanal (7 dias)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="form-label" style={{ fontSize: '0.78rem', color: '#f8fafc', fontWeight: 600 }}>Tipo de Valor</label>
                       <select
                         className="form-select"
                         value={valueMode}
                         onChange={(e) => setValueMode(e.target.value)}
                       >
-                        <option value="mensal">Valor por mês (ex: 10x de R$ 1.000)</option>
-                        <option value="total">Valor total (dividir por X)</option>
+                        <option value="mensal">Por parcela</option>
+                        <option value="total">Valor total</option>
                       </select>
                     </div>
                   </div>
@@ -430,11 +457,11 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
                     </div>
                   )}
 
-                  {/* Prévia das parcelas nos meses */}
+                  {/* Prévia das parcelas (Semanais ou Mensais) */}
                   {previewInstallments.length > 0 && (
                     <div style={{ background: 'rgba(15, 23, 42, 0.8)', borderRadius: '8px', padding: '0.75rem', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
                       <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#38bdf8', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Layers size={13} /> Prévia dos Lançamentos nos Meses:
+                        <Layers size={13} /> Prévia das Parcelas ({frequency === 'semanal' ? 'Semanais - a cada 7 dias' : 'Mensais'}):
                       </div>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.4rem', maxHeight: '110px', overflowY: 'auto' }}>
                         {previewInstallments.map((p) => (
@@ -446,7 +473,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
                             border: p.isPaid ? '1px solid rgba(16, 185, 129, 0.3)' : (p.isPast ? '1px solid rgba(244, 63, 94, 0.3)' : '1px solid rgba(255, 255, 255, 0.05)')
                           }}>
                             <div style={{ color: '#9ca3af', display: 'flex', justifyContent: 'space-between' }}>
-                              <span>Parcela {p.num}/{p.totalNum}</span>
+                              <span>P{p.num}/{p.totalNum}</span>
                               {p.isPaid && <span style={{ color: '#34d399', fontWeight: 700 }}>✓ Paga</span>}
                               {!p.isPaid && p.isPast && <span style={{ color: '#f43f5e', fontWeight: 700 }}>Vencida</span>}
                             </div>
@@ -510,7 +537,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
             </button>
             <button type="submit" className="btn btn-primary" style={{ background: '#f59e0b', borderColor: '#f59e0b' }}>
               <Check size={18} />
-              {billToEdit ? 'Salvar Alterações' : (isAgreement ? `Gerar Acordo em ${installmentsCount} Meses` : 'Cadastrar Conta')}
+              {billToEdit ? 'Salvar Alterações' : (isAgreement ? `Gerar Acordo em ${installmentsCount} Parcelas` : 'Cadastrar Conta')}
             </button>
           </div>
         </form>
