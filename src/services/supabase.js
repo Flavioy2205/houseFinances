@@ -46,7 +46,7 @@ export const testSupabaseConnection = async (url, key) => {
   }
 };
 
-// Busca todas as transações do banco Supabase (filtrando por userEmail ou userId)
+// Busca todas as transações do banco Supabase (filtrando estritamente por userEmail ou userId)
 export const fetchCloudTransactions = async (userEmailOrId = null) => {
   const client = getSupabaseClient();
   if (!client) return null;
@@ -61,11 +61,10 @@ export const fetchCloudTransactions = async (userEmailOrId = null) => {
 
     const target = userEmailOrId ? String(userEmailOrId).toLowerCase().trim() : null;
 
-    // Filtra gastos correspondentes ao usuário (e-mail, ID ou lançamentos legados sem user_id)
+    // Filtra gastos estritamente correspondentes ao usuário ativo
     const filteredData = data.filter(row => {
       if (!target) return true;
       const rowUserId = row.user_id ? String(row.user_id).toLowerCase().trim() : '';
-      if (!rowUserId) return true; // Inclui gastos legados inseridos antes do campo user_id
       return rowUserId === target;
     });
 
@@ -245,6 +244,155 @@ export const insertCloudUser = async (user) => {
   } catch (err) {
     console.error('Exceção ao cadastrar usuário no Supabase:', err);
     return { success: false, error: err.message || 'Erro de conexão com o Supabase.' };
+  }
+};
+
+// --- FUNÇÕES DE CONTAS A PAGAR (BILLS) NO SUPABASE ---
+
+export const fetchCloudBills = async (userEmailOrId = null) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client.from('bills').select('*').order('created_at', { ascending: false });
+    if (error) return null;
+
+    const target = userEmailOrId ? String(userEmailOrId).toLowerCase().trim() : null;
+    const filtered = data.filter(row => {
+      if (!target) return true;
+      const rowUserId = row.user_id ? String(row.user_id).toLowerCase().trim() : '';
+      return rowUserId === target;
+    });
+
+    return filtered.map(row => ({
+      id: row.id,
+      userId: row.user_id,
+      description: row.description,
+      amount: Number(row.amount),
+      dueDate: row.due_date,
+      status: row.status,
+      paidAt: row.paid_at || null,
+      paidAmount: row.paid_amount ? Number(row.paid_amount) : null,
+      category: row.category,
+      paymentType: row.payment_type,
+      isAgreement: Boolean(row.is_agreement),
+      agreementId: row.agreement_id || null,
+      installmentIndex: row.installment_index ? Number(row.installment_index) : null,
+      installmentsCount: row.installments_count ? Number(row.installments_count) : null,
+      totalAmount: row.total_amount ? Number(row.total_amount) : null,
+      notes: row.notes || '',
+      createdAt: row.created_at
+    }));
+  } catch (err) {
+    console.warn('Erro ao buscar contas do Supabase:', err);
+    return null;
+  }
+};
+
+export const insertCloudBill = async (bill, userEmailOrId = null) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const payload = {
+      id: bill.id,
+      user_id: userEmailOrId || bill.userId || null,
+      description: bill.description,
+      amount: bill.amount,
+      due_date: bill.dueDate,
+      status: bill.status || 'nao_pago',
+      paid_at: bill.paidAt || null,
+      paid_amount: bill.paidAmount || null,
+      category: bill.category,
+      payment_type: bill.paymentType,
+      is_agreement: Boolean(bill.isAgreement),
+      agreement_id: bill.agreementId || null,
+      installment_index: bill.installmentIndex || null,
+      installments_count: bill.installmentsCount || null,
+      total_amount: bill.totalAmount || null,
+      notes: bill.notes || ''
+    };
+
+    const { data, error } = await client.from('bills').insert([payload]).select();
+    if (error) return null;
+    return data ? data[0] : null;
+  } catch (err) {
+    return null;
+  }
+};
+
+export const deleteCloudBill = async (id, userEmailOrId = null) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const { error } = await client.from('bills').delete().eq('id', id);
+    if (error) throw error;
+    return true;
+  } catch (err) {
+    console.error('Erro ao excluir conta no Supabase:', err);
+    return false;
+  }
+};
+
+export const updateCloudBill = async (id, updatedBill, userEmailOrId = null) => {
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  try {
+    const payload = {};
+    if (updatedBill.description !== undefined) payload.description = updatedBill.description;
+    if (updatedBill.amount !== undefined) payload.amount = updatedBill.amount;
+    if (updatedBill.dueDate !== undefined) payload.due_date = updatedBill.dueDate;
+    if (updatedBill.status !== undefined) payload.status = updatedBill.status;
+    if (updatedBill.paidAt !== undefined) payload.paid_at = updatedBill.paidAt;
+    if (updatedBill.paidAmount !== undefined) payload.paid_amount = updatedBill.paidAmount;
+    if (updatedBill.category !== undefined) payload.category = updatedBill.category;
+    if (updatedBill.paymentType !== undefined) payload.payment_type = updatedBill.paymentType;
+    if (updatedBill.notes !== undefined) payload.notes = updatedBill.notes;
+
+    const { data, error } = await client
+      .from('bills')
+      .update(payload)
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    return data ? data[0] : null;
+  } catch (err) {
+    console.error('Erro ao atualizar conta no Supabase:', err);
+    return null;
+  }
+};
+
+// --- FUNÇÕES DE ORÇAMENTO (BUDGET) NO SUPABASE ---
+
+export const fetchCloudBudget = async (userEmailOrId = null) => {
+  const client = getSupabaseClient();
+  if (!client || !userEmailOrId) return null;
+
+  try {
+    const target = String(userEmailOrId).toLowerCase().trim();
+    const { data, error } = await client.from('user_budgets').select('*').eq('user_id', target).limit(1);
+    if (error || !data || data.length === 0) return null;
+    return Number(data[0].amount);
+  } catch (err) {
+    return null;
+  }
+};
+
+export const saveCloudBudget = async (amount, userEmailOrId = null) => {
+  const client = getSupabaseClient();
+  if (!client || !userEmailOrId) return null;
+
+  try {
+    const target = String(userEmailOrId).toLowerCase().trim();
+    const payload = { user_id: target, amount: Number(amount), updated_at: new Date().toISOString() };
+    const { data, error } = await client.from('user_budgets').upsert([payload]).select();
+    if (error) return null;
+    return data ? data[0] : null;
+  } catch (err) {
+    return null;
   }
 };
 

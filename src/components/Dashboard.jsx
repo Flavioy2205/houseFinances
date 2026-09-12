@@ -89,6 +89,7 @@ export const Dashboard = ({ onNavigateToManual, onNavigateToContas }) => {
     subscriptionsTotalMonth,
     monthlyBudget,
     setMonthlyBudget,
+    updateMonthlyBudget,
     bills
   } = useFinance();
 
@@ -180,7 +181,11 @@ export const Dashboard = ({ onNavigateToManual, onNavigateToContas }) => {
     e.preventDefault();
     const val = parseFloat(budgetInput);
     if (val && val > 0 && val <= 1000000) {
-      setMonthlyBudget(val);
+      if (typeof updateMonthlyBudget === 'function') {
+        updateMonthlyBudget(val);
+      } else {
+        setMonthlyBudget(val);
+      }
       setIsEditingBudget(false);
     } else if (val > 1000000) {
       alert('O valor máximo permitido para o orçamento é R$ 1.000.000,00 (1 milhão).');

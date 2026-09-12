@@ -5,40 +5,64 @@ import {
   fetchCloudTransactions, 
   insertCloudTransaction, 
   deleteCloudTransaction,
-  updateCloudTransaction
+  updateCloudTransaction,
+  fetchCloudBills,
+  insertCloudBill,
+  deleteCloudBill,
+  updateCloudBill,
+  fetchCloudBudget,
+  saveCloudBudget
 } from '../services/supabase';
 
 const FinanceContext = createContext();
 
-const getInitialTransactions = () => [];
+const getTxKey = (userId) => userId ? `housefinances_tx_${userId}` : 'housefinances_tx';
+const getBillsKey = (userId) => userId ? `housefinances_bills_${userId}` : 'housefinances_bills';
+const getBudgetKey = (userId) => userId ? `housefinances_budget_${userId}` : 'housefinances_budget';
 
 export const FinanceProvider = ({ children }) => {
   const { user } = useAuth();
   const activeUserId = user?.email ? String(user.email).toLowerCase().trim() : (user?.id || null);
 
   const [transactions, setTransactions] = useState(() => {
-    const saved = localStorage.getItem('housefinances_tx');
+    if (!activeUserId) return [];
+    const saved = localStorage.getItem(getTxKey(activeUserId));
     if (saved) {
       try { return JSON.parse(saved); } catch (e) { console.error(e); }
     }
-    return getInitialTransactions();
-  });
-
-  const [bills, setBills] = useState(() => {
-    const saved = localStorage.getItem('housefinances_bills');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    // Fallback de migração local se existir chave legada
+    const legacy = localStorage.getItem('housefinances_tx');
+    if (legacy) {
+      try {
+        const parsed = JSON.parse(legacy);
+        return parsed.filter(t => !t.userId || t.userId === activeUserId);
+      } catch (e) {}
     }
     return [];
   });
 
-  useEffect(() => {
-    localStorage.setItem('housefinances_bills', JSON.stringify(bills));
-  }, [bills]);
+  const [bills, setBills] = useState(() => {
+    if (!activeUserId) return [];
+    const saved = localStorage.getItem(getBillsKey(activeUserId));
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    const legacy = localStorage.getItem('housefinances_bills');
+    if (legacy) {
+      try {
+        const parsed = JSON.parse(legacy);
+        return parsed.filter(b => !b.userId || b.userId === activeUserId);
+      } catch (e) {}
+    }
+    return [];
+  });
 
   const [monthlyBudget, setMonthlyBudget] = useState(() => {
-    const saved = localStorage.getItem('housefinances_budget');
-    return saved ? Number(saved) : 4000;
+    if (!activeUserId) return 4000;
+    const saved = localStorage.getItem(getBudgetKey(activeUserId));
+    if (saved) return Number(saved) || 4000;
+    const legacy = localStorage.getItem('housefinances_budget');
+    return legacy ? Number(legacy) || 4000 : 4000;
   });
 
   const [dbMode, setDbMode] = useState('supabase'); // 'supabase' | 'local_storage'
@@ -52,31 +76,66 @@ export const FinanceProvider = ({ children }) => {
 
     if (!targetUserId) {
       setTransactions([]);
+      setBills([]);
+      setMonthlyBudget(4000);
       setIsLoadingDB(false);
       return;
     }
 
-    const cloudData = await fetchCloudTransactions(targetUserId);
-    if (cloudData !== null && Array.isArray(cloudData)) {
-      setTransactions(cloudData);
-      setDbMode('supabase');
-      setDbStatusText('Supabase Cloud');
-      setIsLoadingDB(false);
-      return;
-    }
+    try {
+      const [cloudTx, cloudBills, cloudBudget] = await Promise.all([
+        fetchCloudTransactions(targetUserId),
+        fetchCloudBills(targetUserId),
+        fetchCloudBudget(targetUserId)
+      ]);
 
-    // Fallback no LocalStorage em caso de desconexão offline
-    const saved = localStorage.getItem('housefinances_tx');
-    if (saved) {
-      try {
-        const allTx = JSON.parse(saved);
-        const userTx = targetUserId ? allTx.filter(t => !t.userId || t.userId === targetUserId) : allTx;
-        setTransactions(userTx);
-      } catch (e) { console.error(e); }
+      let isCloud = false;
+
+      if (cloudTx !== null && Array.isArray(cloudTx)) {
+        setTransactions(cloudTx);
+        localStorage.setItem(getTxKey(targetUserId), JSON.stringify(cloudTx));
+        isCloud = true;
+      } else {
+        const saved = localStorage.getItem(getTxKey(targetUserId));
+        if (saved) {
+          try { setTransactions(JSON.parse(saved)); } catch (e) {}
+        }
+      }
+
+      if (cloudBills !== null && Array.isArray(cloudBills)) {
+        setBills(cloudBills);
+        localStorage.setItem(getBillsKey(targetUserId), JSON.stringify(cloudBills));
+        isCloud = true;
+      } else {
+        const saved = localStorage.getItem(getBillsKey(targetUserId));
+        if (saved) {
+          try { setBills(JSON.parse(saved)); } catch (e) {}
+        }
+      }
+
+      if (cloudBudget !== null && typeof cloudBudget === 'number' && cloudBudget > 0) {
+        setMonthlyBudget(cloudBudget);
+        localStorage.setItem(getBudgetKey(targetUserId), String(cloudBudget));
+        isCloud = true;
+      } else {
+        const saved = localStorage.getItem(getBudgetKey(targetUserId));
+        if (saved) {
+          setMonthlyBudget(Number(saved) || 4000);
+        }
+      }
+
+      if (isCloud) {
+        setDbMode('supabase');
+        setDbStatusText('Supabase Cloud');
+      } else {
+        setDbMode('local_storage');
+        setDbStatusText('LocalStorage (Offline)');
+      }
+    } catch (err) {
+      console.error('Erro na sincronização com banco:', err);
+    } finally {
+      setIsLoadingDB(false);
     }
-    setDbMode('local_storage');
-    setDbStatusText('LocalStorage (Offline)');
-    setIsLoadingDB(false);
   };
 
   // Re-sincroniza imediatamente quando o usuário logado mudar (ex: login/logout/troca de aparelho)
@@ -85,6 +144,8 @@ export const FinanceProvider = ({ children }) => {
       syncWithDatabase(activeUserId);
     } else {
       setTransactions([]);
+      setBills([]);
+      setMonthlyBudget(4000);
     }
   }, [activeUserId]);
 
@@ -93,12 +154,14 @@ export const FinanceProvider = ({ children }) => {
 
     // Sincroniza automaticamente a cada 5 segundos no Supabase Cloud para o usuário logado
     const interval = setInterval(() => {
-      fetchCloudTransactions(activeUserId).then(data => {
-        if (data && Array.isArray(data)) {
-          setTransactions(data);
-          setDbMode('supabase');
-          setDbStatusText('Supabase Cloud');
-        }
+      Promise.all([
+        fetchCloudTransactions(activeUserId),
+        fetchCloudBills(activeUserId),
+        fetchCloudBudget(activeUserId)
+      ]).then(([cloudTx, cloudBills, cloudBudget]) => {
+        if (cloudTx && Array.isArray(cloudTx)) setTransactions(cloudTx);
+        if (cloudBills && Array.isArray(cloudBills)) setBills(cloudBills);
+        if (cloudBudget && typeof cloudBudget === 'number' && cloudBudget > 0) setMonthlyBudget(cloudBudget);
       }).catch(err => {
         console.warn('Erro ao atualizar dados do Supabase em segundo plano:', err);
       });
@@ -161,12 +224,32 @@ export const FinanceProvider = ({ children }) => {
   }, [activeUserId]);
 
   useEffect(() => {
-    localStorage.setItem('housefinances_tx', JSON.stringify(transactions));
-  }, [transactions]);
+    if (activeUserId) {
+      localStorage.setItem(getTxKey(activeUserId), JSON.stringify(transactions));
+    }
+  }, [transactions, activeUserId]);
 
   useEffect(() => {
-    localStorage.setItem('housefinances_budget', String(monthlyBudget));
-  }, [monthlyBudget]);
+    if (activeUserId) {
+      localStorage.setItem(getBillsKey(activeUserId), JSON.stringify(bills));
+    }
+  }, [bills, activeUserId]);
+
+  useEffect(() => {
+    if (activeUserId) {
+      localStorage.setItem(getBudgetKey(activeUserId), String(monthlyBudget));
+    }
+  }, [monthlyBudget, activeUserId]);
+
+  const updateMonthlyBudget = async (newAmount) => {
+    const val = Number(newAmount);
+    if (isNaN(val) || val <= 0) return;
+    setMonthlyBudget(val);
+    if (activeUserId) {
+      localStorage.setItem(getBudgetKey(activeUserId), String(val));
+      await saveCloudBudget(val, activeUserId);
+    }
+  };
 
   const addTransaction = async (newTx) => {
     const tx = {
@@ -207,7 +290,12 @@ export const FinanceProvider = ({ children }) => {
 
   const clearAllData = () => {
     setTransactions([]);
-    localStorage.removeItem('housefinances_tx');
+    setBills([]);
+    if (activeUserId) {
+      localStorage.removeItem(getTxKey(activeUserId));
+      localStorage.removeItem(getBillsKey(activeUserId));
+      localStorage.removeItem(getBudgetKey(activeUserId));
+    }
   };
 
   const resetData = () => {
@@ -377,6 +465,7 @@ export const FinanceProvider = ({ children }) => {
       amount: parseFloat(newBill.amount) || 0
     };
     setBills(prev => [bill, ...prev]);
+    await insertCloudBill(bill, activeUserId);
     return bill;
   };
 
@@ -398,7 +487,7 @@ export const FinanceProvider = ({ children }) => {
         createdTxId = createdTx?.id || null;
       }
 
-      createdBills.push({
+      const billObj = {
         id: 'bill-' + Date.now() + idx + '-' + Math.random().toString(36).substr(2, 5),
         userId: activeUserId,
         createdAt: new Date().toISOString(),
@@ -408,18 +497,22 @@ export const FinanceProvider = ({ children }) => {
         transactionId: createdTxId,
         ...newBill,
         amount: parseFloat(newBill.amount) || 0
-      });
+      };
+      createdBills.push(billObj);
+      await insertCloudBill(billObj, activeUserId);
     }
     setBills(prev => [...createdBills, ...prev]);
     return createdBills;
   };
 
-  const updateBill = (id, updatedData) => {
+  const updateBill = async (id, updatedData) => {
     setBills(prev => prev.map(b => b.id === id ? { ...b, ...updatedData } : b));
+    await updateCloudBill(id, updatedData, activeUserId);
   };
 
-  const deleteBill = (id) => {
+  const deleteBill = async (id) => {
     setBills(prev => prev.filter(b => b.id !== id));
+    await deleteCloudBill(id, activeUserId);
   };
 
   const payBill = async (id, paymentData = {}) => {
@@ -445,14 +538,16 @@ export const FinanceProvider = ({ children }) => {
       createdTxId = createdTx?.id || null;
     }
 
-    setBills(prev => prev.map(b => b.id === id ? {
-      ...b,
+    const updatedFields = {
       status: 'pago',
       paidAt,
       paymentType,
       paidAmount,
       transactionId: createdTxId
-    } : b));
+    };
+
+    setBills(prev => prev.map(b => b.id === id ? { ...b, ...updatedFields } : b));
+    await updateCloudBill(id, updatedFields, activeUserId);
   };
 
   const unpayBill = async (id, shouldDeleteTx = false) => {
@@ -463,13 +558,15 @@ export const FinanceProvider = ({ children }) => {
       await deleteTransaction(bill.transactionId);
     }
 
-    setBills(prev => prev.map(b => b.id === id ? {
-      ...b,
+    const updatedFields = {
       status: 'nao_pago',
       paidAt: null,
       paidAmount: null,
       transactionId: null
-    } : b));
+    };
+
+    setBills(prev => prev.map(b => b.id === id ? { ...b, ...updatedFields } : b));
+    await updateCloudBill(id, updatedFields, activeUserId);
   };
 
   // Subscriptions Total
@@ -562,6 +659,7 @@ export const FinanceProvider = ({ children }) => {
       subscriptionsTotalMonth,
       monthlyBudget,
       setMonthlyBudget,
+      updateMonthlyBudget,
       addTransaction,
       deleteTransaction,
       updateTransaction,
