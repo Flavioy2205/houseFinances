@@ -7,6 +7,7 @@ import { Dashboard } from './components/Dashboard';
 import { ExpenseForm } from './components/ExpenseForm';
 import { TransactionList } from './components/TransactionList';
 import { BillsManagement } from './components/BillsManagement';
+import { CalendarView } from './components/CalendarView';
 import { LoginScreen } from './components/LoginScreen';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -30,6 +31,11 @@ function MainApp() {
         return {
           title: 'Contas a Pagar',
           subtitle: 'Gerencie datas de vencimento, quite cobranças e acompanhe o gráfico de contas pagas e a pagar.'
+        };
+      case 'calendario':
+        return {
+          title: 'Calendário de Contas & Previsão Semanal',
+          subtitle: 'Visualize suas contas organizadas por dia e semana no mês com previsão de gastos por semana.'
         };
       case 'manual':
         return {
@@ -69,6 +75,10 @@ function MainApp() {
 
         {activeTab === 'contas' && (
           <BillsManagement />
+        )}
+
+        {activeTab === 'calendario' && (
+          <CalendarView />
         )}
 
         {activeTab === 'manual' && (

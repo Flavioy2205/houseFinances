@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, PlusCircle, MessageSquare, ReceiptText, Wallet, LogOut, Database, ShieldAlert, CalendarClock } from 'lucide-react';
+import { LayoutDashboard, PlusCircle, MessageSquare, ReceiptText, Wallet, LogOut, Database, ShieldAlert, CalendarClock, CalendarDays } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 import { HouseFinancesLogo } from './HouseFinancesLogo';
@@ -10,6 +10,7 @@ export const Sidebar = ({ activeTab, setActiveTab }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'contas', label: 'Contas a Pagar', icon: CalendarClock },
+    { id: 'calendario', label: 'Calendário de Contas', icon: CalendarDays },
     { id: 'manual', label: 'Inserir Gasto', icon: PlusCircle },
     { id: 'extrato', label: 'Histórico & Extrato', icon: ReceiptText }
   ];
