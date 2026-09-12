@@ -14,6 +14,13 @@ export const PayBillModal = ({ bill, onClose }) => {
 
   if (!bill) return null;
 
+  const getWeekdayName = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T00:00:00');
+    const days = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+    return days[date.getDay()];
+  };
+
   const handleConfirmPay = (e) => {
     e.preventDefault();
     const numericPaid = parseFloat(paidAmount);
@@ -68,7 +75,14 @@ export const PayBillModal = ({ bill, onClose }) => {
         <form onSubmit={handleConfirmPay} style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
           {/* Data do Pagamento */}
           <div className="form-group">
-            <label className="form-label" style={{ fontWeight: 600 }}>Data do Pagamento Efetivado *</label>
+            <label className="form-label" style={{ fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Data do Pagamento Efetivado *</span>
+              {paidAt && (
+                <span style={{ fontSize: '0.78rem', color: '#10b981', fontWeight: 600 }}>
+                  📅 {getWeekdayName(paidAt)}
+                </span>
+              )}
+            </label>
             <input
               type="date"
               className="form-input"

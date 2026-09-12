@@ -186,8 +186,11 @@ export const BillsManagement = () => {
 
   const getDueDateStatus = (bill) => {
     if (bill.status === 'pago') {
+      const paidDateFormatted = bill.paidAt
+        ? `${new Date(bill.paidAt + 'T00:00:00').toLocaleDateString('pt-BR')} (${getWeekdayName(bill.paidAt)})`
+        : 'Data n/i';
       return {
-        label: `Pago em ${bill.paidAt ? new Date(bill.paidAt + 'T00:00:00').toLocaleDateString('pt-BR') : 'Data n/i'}`,
+        label: `Pago em ${paidDateFormatted}`,
         color: '#10b981',
         bg: 'rgba(16, 185, 129, 0.15)',
         border: 'rgba(16, 185, 129, 0.3)',
@@ -743,20 +746,28 @@ export const BillsManagement = () => {
                       {/* Status */}
                       <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
                         {isPaid ? (
-                          <span style={{
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            color: '#10b981',
-                            background: 'rgba(16, 185, 129, 0.15)',
-                            border: '1px solid rgba(16, 185, 129, 0.3)',
-                            padding: '4px 10px',
-                            borderRadius: '6px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}>
-                            <CheckCircle2 size={14} /> Pago
-                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                            <span style={{
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              color: '#10b981',
+                              background: 'rgba(16, 185, 129, 0.15)',
+                              border: '1px solid rgba(16, 185, 129, 0.3)',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              width: 'fit-content'
+                            }}>
+                              <CheckCircle2 size={14} /> Pago
+                            </span>
+                            {b.paidAt && (
+                              <div style={{ fontSize: '0.73rem', color: '#9ca3af', fontWeight: 500 }}>
+                                Paguei em: <strong style={{ color: '#34d399' }}>{new Date(b.paidAt + 'T00:00:00').toLocaleDateString('pt-BR')} ({getWeekdayName(b.paidAt)})</strong>
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span style={{
                             fontSize: '0.78rem',
