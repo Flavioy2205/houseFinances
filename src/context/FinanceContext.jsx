@@ -24,6 +24,18 @@ export const FinanceProvider = ({ children }) => {
     return getInitialTransactions();
   });
 
+  const [bills, setBills] = useState(() => {
+    const saved = localStorage.getItem('housefinances_bills');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) { console.error(e); }
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('housefinances_bills', JSON.stringify(bills));
+  }, [bills]);
+
   const [monthlyBudget, setMonthlyBudget] = useState(() => {
     const saved = localStorage.getItem('housefinances_budget');
     return saved ? Number(saved) : 4000;
@@ -337,18 +349,6 @@ export const FinanceProvider = ({ children }) => {
     acc[t.category] = (acc[t.category] || 0) + t.amount;
     return acc;
   }, {});
-
-  const [bills, setBills] = useState(() => {
-    const saved = localStorage.getItem('housefinances_bills');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) { console.error(e); }
-    }
-    return [];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('housefinances_bills', JSON.stringify(bills));
-  }, [bills]);
 
   const addBill = (newBill) => {
     const bill = {
