@@ -297,7 +297,7 @@ export const FinanceProvider = ({ children }) => {
 
   const [selectedYearMonth, setSelectedYearMonth] = useState(getCurrentYearMonth());
 
-  // Lista dinâmica de meses disponíveis (mês atual + meses com gastos cadastrados)
+  // Lista dinâmica de meses disponíveis (mês atual + meses com gastos cadastrados + contas a pagar)
   const availableMonths = React.useMemo(() => {
     const monthSet = new Set();
     monthSet.add(getCurrentYearMonth());
@@ -306,8 +306,15 @@ export const FinanceProvider = ({ children }) => {
         monthSet.add(t.date.substring(0, 7));
       }
     });
+    if (bills && Array.isArray(bills)) {
+      bills.forEach(b => {
+        if (b.dueDate && b.dueDate.length >= 7) {
+          monthSet.add(b.dueDate.substring(0, 7));
+        }
+      });
+    }
     return Array.from(monthSet).sort().reverse();
-  }, [transactions]);
+  }, [transactions, bills]);
 
   const currentMonthTransactions = React.useMemo(() => {
     if (selectedYearMonth === 'all') return transactions;
@@ -357,6 +364,22 @@ export const FinanceProvider = ({ children }) => {
     };
     setBills(prev => [bill, ...prev]);
     return bill;
+  };
+
+  const addMultiMonthBills = (billsList) => {
+    const createdBills = billsList.map((newBill, idx) => ({
+      id: 'bill-' + Date.now() + idx + '-' + Math.random().toString(36).substr(2, 5),
+      userId: activeUserId,
+      createdAt: new Date().toISOString(),
+      status: 'nao_pago',
+      paidAt: null,
+      paidAmount: null,
+      transactionId: null,
+      ...newBill,
+      amount: parseFloat(newBill.amount) || 0
+    }));
+    setBills(prev => [...createdBills, ...prev]);
+    return createdBills;
   };
 
   const updateBill = (id, updatedData) => {
@@ -442,6 +465,7 @@ export const FinanceProvider = ({ children }) => {
       updateTransaction,
       bills,
       addBill,
+      addMultiMonthBills,
       updateBill,
       deleteBill,
       payBill,

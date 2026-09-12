@@ -492,8 +492,13 @@ export const BillsManagement = () => {
 
                       {/* Descrição */}
                       <td style={{ padding: '0.85rem 1rem' }}>
-                        <div style={{ fontWeight: 600, color: '#f9fafb', fontSize: '0.95rem' }}>
-                          {b.description}
+                        <div style={{ fontWeight: 600, color: '#f9fafb', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <span>{b.description}</span>
+                          {b.isAgreement && (
+                            <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fbbf24', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '1px 6px', borderRadius: '4px' }}>
+                              🔄 Acordo ({b.installmentIndex}/{b.installmentsCount})
+                            </span>
+                          )}
                         </div>
                         {b.notes && (
                           <div style={{ fontSize: '0.78rem', color: '#9ca3af', marginTop: '2px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
