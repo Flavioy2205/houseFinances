@@ -69,6 +69,13 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
     }
   }, [isRetroactive, dueDate]);
 
+  const getWeekdayName = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T00:00:00');
+    const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    return days[date.getDay()];
+  };
+
   // Auxiliar para calcular data de vencimento (Mensal ou Semanal)
   const calcDueDateForOffset = (startDueDateStr, offsetIndex, freq = 'mensal') => {
     if (!startDueDateStr) return '';
@@ -113,6 +120,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
         num: i + 1,
         totalNum: numInstallments,
         dateStr: formattedDate,
+        rawDate: calcDate,
         amountVal: monthlyVal,
         isPast,
         isPaid,
@@ -478,7 +486,7 @@ export const BillFormModal = ({ billToEdit = null, onClose }) => {
                               {!p.isPaid && p.isPast && <span style={{ color: '#f43f5e', fontWeight: 700 }}>Vencida</span>}
                             </div>
                             <div style={{ color: p.isPaid ? '#10b981' : '#f8fafc', fontWeight: 700 }}>R$ {p.amountVal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                            <div style={{ color: '#9ca3af', fontSize: '0.7rem' }}>📅 {p.dateStr}</div>
+                            <div style={{ color: '#9ca3af', fontSize: '0.7rem' }}>📅 {p.dateStr} - {getWeekdayName(p.rawDate)}</div>
                           </div>
                         ))}
                       </div>

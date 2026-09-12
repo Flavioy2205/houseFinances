@@ -70,6 +70,13 @@ export const BillsManagement = () => {
   const getTodayString = () => new Date().toISOString().split('T')[0];
   const todayStr = getTodayString();
 
+  const getWeekdayName = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr + 'T00:00:00');
+    const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+    return days[date.getDay()];
+  };
+
   const formatMonthLabel = (ymStr) => {
     if (ymStr === 'all') return '🌐 Todo o Histórico Completo';
     const [y, m] = ymStr.split('-');
@@ -681,7 +688,10 @@ export const BillsManagement = () => {
                       {/* Vencimento */}
                       <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap' }}>
                         <div style={{ fontWeight: 700, color: '#f9fafb', fontSize: '0.92rem' }}>
-                          {new Date(b.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}
+                          {new Date(b.dueDate + 'T00:00:00').toLocaleDateString('pt-BR')}{' '}
+                          <span style={{ color: '#fbbf24', fontWeight: 600, fontSize: '0.84rem' }}>
+                            - {getWeekdayName(b.dueDate)}
+                          </span>
                         </div>
                         <div style={{
                           display: 'inline-flex',
