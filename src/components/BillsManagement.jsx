@@ -15,7 +15,11 @@ import {
   PieChart as PieIcon,
   BarChart3,
   Tag,
-  AlertTriangle
+  AlertTriangle,
+  TrendingDown,
+  Layers,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -50,11 +54,13 @@ export const BillsManagement = () => {
     unpayBill, 
     selectedYearMonth, 
     setSelectedYearMonth, 
-    availableMonths 
+    availableMonths,
+    agreementsSummary
   } = useFinance();
 
   const [filterTab, setFilterTab] = useState('todas'); // 'todas' | 'pendentes' | 'vencidas' | 'pagas'
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDebtDetails, setShowDebtDetails] = useState(false);
   
   // Modals state
   const [showFormModal, setShowFormModal] = useState(false);
@@ -273,6 +279,211 @@ export const BillsManagement = () => {
           </button>
         </div>
       </div>
+
+      {/* Painel de Saldo Devedor Restante & Progresso de Quitação das Dívidas / Acordos */}
+      {agreementsSummary && agreementsSummary.agreementsList.length > 0 && (
+        <div className="card" style={{
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.9) 100%)',
+          border: '1px solid rgba(245, 158, 11, 0.4)',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+          padding: '1.25rem'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            marginBottom: '1.25rem',
+            paddingBottom: '0.75rem',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{
+                background: 'rgba(245, 158, 11, 0.2)',
+                color: '#fbbf24',
+                padding: '10px',
+                borderRadius: '12px',
+                display: 'flex',
+                alignItems: 'center'
+              }}>
+                <TrendingDown size={24} />
+              </div>
+              <div>
+                <h3 className="section-title" style={{ fontSize: '1.15rem', color: '#f8fafc', margin: 0 }}>
+                  Painel de Saldo Devedor & Amortização de Dívidas / Acordos
+                </h3>
+                <div style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '2px' }}>
+                  Acompanhamento global: a cada parcela paga, o valor total restante é reduzido automaticamente.
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowDebtDetails(!showDebtDetails)}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.82rem', padding: '5px 12px', display: 'flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Layers size={15} />
+              {showDebtDetails ? 'Ocultar Detalhes dos Acordos' : `Ver Detalhes (${agreementsSummary.agreementsList.length} Acordo${agreementsSummary.agreementsList.length > 1 ? 's' : ''})`}
+              {showDebtDetails ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            </button>
+          </div>
+
+          {/* Cards de Resumo Global de Dívidas */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+            {/* Card 1: Valor Total da Dívida */}
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.08)',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+              borderRadius: '12px',
+              padding: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.3rem'
+            }}>
+              <div style={{ fontSize: '0.8rem', color: '#fbbf24', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <DollarSign size={16} /> Valor Total Original da Dívida
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f8fafc' }}>
+                R$ {agreementsSummary.totalDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                Soma de todos os acordos/financiamentos
+              </div>
+            </div>
+
+            {/* Card 2: Total Amortizado (Já Pago) */}
+            <div style={{
+              background: 'rgba(16, 185, 129, 0.08)',
+              border: '1px solid rgba(16, 185, 129, 0.25)',
+              borderRadius: '12px',
+              padding: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.3rem'
+            }}>
+              <div style={{ fontSize: '0.8rem', color: '#34d399', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <CheckCircle2 size={16} /> Total Já Amortizado (Pago)
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981' }}>
+                R$ {agreementsSummary.paidDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                Subtraído automaticamente das parcelas pagas
+              </div>
+            </div>
+
+            {/* Card 3: Saldo Devedor Restante */}
+            <div style={{
+              background: agreementsSummary.remainingDebt > 0 ? 'rgba(56, 189, 248, 0.08)' : 'rgba(16, 185, 129, 0.15)',
+              border: agreementsSummary.remainingDebt > 0 ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(16, 185, 129, 0.4)',
+              borderRadius: '12px',
+              padding: '1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.3rem'
+            }}>
+              <div style={{ fontSize: '0.8rem', color: agreementsSummary.remainingDebt > 0 ? '#38bdf8' : '#34d399', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Clock size={16} /> Saldo Devedor Restante
+              </div>
+              <div style={{ fontSize: '1.4rem', fontWeight: 800, color: agreementsSummary.remainingDebt > 0 ? '#38bdf8' : '#10b981' }}>
+                R$ {agreementsSummary.remainingDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                {agreementsSummary.remainingDebt > 0 ? `Falta quitar ${100 - agreementsSummary.progressPercentage}% do total` : '🎉 Dívidas totalmente quitadas!'}
+              </div>
+            </div>
+          </div>
+
+          {/* Barra Visual de Quitação Geral */}
+          <div style={{
+            background: 'rgba(15, 23, 42, 0.6)',
+            borderRadius: '10px',
+            padding: '0.85rem 1rem',
+            border: '1px solid rgba(255, 255, 255, 0.06)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', fontSize: '0.82rem' }}>
+              <span style={{ color: '#f8fafc', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                📊 Quitação Global dos Acordos: <span style={{ color: '#fbbf24', fontWeight: 700 }}>{agreementsSummary.progressPercentage}% Amortizado</span>
+              </span>
+              <span style={{ color: '#9ca3af' }}>
+                R$ {agreementsSummary.paidDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} de R$ {agreementsSummary.totalDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div style={{ width: '100%', height: '10px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '10px', overflow: 'hidden' }}>
+              <div style={{
+                width: `${agreementsSummary.progressPercentage}%`,
+                height: '100%',
+                background: 'linear-gradient(90deg, #f59e0b 0%, #10b981 100%)',
+                borderRadius: '10px',
+                transition: 'width 0.5s ease'
+              }} />
+            </div>
+          </div>
+
+          {/* Detalhamento por Acordo (Sanfona Expansível) */}
+          {showDebtDetails && (
+            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+              <h4 style={{ fontSize: '0.9rem', color: '#fbbf24', fontWeight: 700, marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Layers size={16} /> Lista de Contratos & Acordos Individuais:
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '0.85rem' }}>
+                {agreementsSummary.agreementsList.map((agr) => (
+                  <div key={agr.id} style={{
+                    background: 'rgba(30, 41, 59, 0.7)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    borderRadius: '10px',
+                    padding: '0.85rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.6rem'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, color: '#f8fafc', fontSize: '0.95rem' }}>{agr.title}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#9ca3af' }}>
+                          Parcelas: {agr.paidCount} de {agr.items.length} pagas
+                        </div>
+                      </div>
+                      <span style={{
+                        fontSize: '0.75rem',
+                        padding: '3px 8px',
+                        borderRadius: '6px',
+                        fontWeight: 600,
+                        background: agr.remainingAmount === 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                        color: agr.remainingAmount === 0 ? '#34d399' : '#fbbf24',
+                        border: agr.remainingAmount === 0 ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)'
+                      }}>
+                        {agr.remainingAmount === 0 ? 'Quitado ✨' : `Em andamento (${agr.progressPercentage}%)`}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.4rem', background: 'rgba(15, 23, 42, 0.5)', padding: '8px', borderRadius: '6px', fontSize: '0.75rem' }}>
+                      <div>
+                        <div style={{ color: '#9ca3af' }}>Valor Total</div>
+                        <div style={{ fontWeight: 700, color: '#f8fafc' }}>R$ {agr.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#9ca3af' }}>Já Pago</div>
+                        <div style={{ fontWeight: 700, color: '#10b981' }}>R$ {agr.paidAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                      </div>
+                      <div>
+                        <div style={{ color: '#9ca3af' }}>Saldo Restante</div>
+                        <div style={{ fontWeight: 700, color: agr.remainingAmount > 0 ? '#38bdf8' : '#10b981' }}>R$ {agr.remainingAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
+                      </div>
+                    </div>
+
+                    <div style={{ width: '100%', height: '5px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '5px', overflow: 'hidden' }}>
+                      <div style={{ width: `${agr.progressPercentage}%`, height: '100%', background: '#10b981', borderRadius: '5px' }} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* KPI Cards Grid */}
       <div className="kpi-grid">

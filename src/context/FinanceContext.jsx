@@ -445,6 +445,76 @@ export const FinanceProvider = ({ children }) => {
     .filter(t => t.category === 'assinatura' || t.isRecurring)
     .reduce((acc, t) => acc + t.amount, 0);
 
+  // Resumo de Dívidas / Acordos & Saldo Devedor Restante
+  const agreementsSummary = React.useMemo(() => {
+    if (!bills || !Array.isArray(bills)) {
+      return { totalDebt: 0, paidDebt: 0, remainingDebt: 0, progressPercentage: 0, agreementsList: [] };
+    }
+
+    const map = new Map();
+
+    bills.forEach(b => {
+      if (!b.isAgreement && !b.totalAmount) return;
+
+      const groupKey = b.agreementId || (b.description ? b.description.replace(/\s*\(\d+\/\d+\)$/, '').trim() : 'outro_acordo');
+      const cleanTitle = b.description ? b.description.replace(/\s*\(\d+\/\d+\)$/, '').trim() : 'Acordo';
+
+      if (!map.has(groupKey)) {
+        map.set(groupKey, {
+          id: groupKey,
+          title: cleanTitle,
+          category: b.category || 'gasto_fixo',
+          installmentsCount: b.installmentsCount || 1,
+          totalAmount: b.totalAmount || 0,
+          paidAmount: 0,
+          paidCount: 0,
+          totalCount: 0,
+          items: []
+        });
+      }
+
+      const group = map.get(groupKey);
+      group.items.push(b);
+      group.totalCount += 1;
+
+      if (b.status === 'pago') {
+        group.paidCount += 1;
+        group.paidAmount += (b.paidAmount || b.amount || 0);
+      }
+    });
+
+    const agreementsList = Array.from(map.values()).map(g => {
+      const computedTotal = g.totalAmount > 0 
+        ? g.totalAmount 
+        : g.items.reduce((acc, item) => acc + (item.amount || 0), 0);
+      
+      const paid = g.paidAmount;
+      const remaining = Math.max(0, computedTotal - paid);
+      const progress = computedTotal > 0 ? Math.min(100, Math.round((paid / computedTotal) * 100)) : 0;
+
+      return {
+        ...g,
+        totalAmount: computedTotal,
+        paidAmount: paid,
+        remainingAmount: remaining,
+        progressPercentage: progress
+      };
+    });
+
+    const totalDebt = agreementsList.reduce((acc, a) => acc + a.totalAmount, 0);
+    const paidDebt = agreementsList.reduce((acc, a) => acc + a.paidAmount, 0);
+    const remainingDebt = Math.max(0, totalDebt - paidDebt);
+    const progressPercentage = totalDebt > 0 ? Math.min(100, Math.round((paidDebt / totalDebt) * 100)) : 0;
+
+    return {
+      totalDebt,
+      paidDebt,
+      remainingDebt,
+      progressPercentage,
+      agreementsList
+    };
+  }, [bills]);
+
   return (
     <FinanceContext.Provider value={{
       transactions,
@@ -470,6 +540,7 @@ export const FinanceProvider = ({ children }) => {
       deleteBill,
       payBill,
       unpayBill,
+      agreementsSummary,
       clearAllData,
       resetData,
       parseWhatsappText,
