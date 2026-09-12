@@ -36,13 +36,13 @@ CREATE TABLE IF NOT EXISTS transactions (
   payment_type TEXT NOT NULL,
   category TEXT NOT NULL,
   is_recurring BOOLEAN DEFAULT false,
+  is_installment BOOLEAN DEFAULT false,
+  installments_count INT,
+  total_amount NUMERIC(10,2),
   date DATE NOT NULL,
   notes TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
--- Adiciona a coluna user_id caso a tabela já exista sem ela
-ALTER TABLE transactions ADD COLUMN IF NOT EXISTS user_id TEXT;
 
 -- 2. Tabela de Usuários
 CREATE TABLE IF NOT EXISTS users (
@@ -53,14 +53,50 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Habilitar RLS e permitir leitura/escrita pública no Supabase
+-- 3. Tabela de Contas a Pagar & Acordos (Bills)
+CREATE TABLE IF NOT EXISTS bills (
+  id TEXT PRIMARY KEY,
+  user_id TEXT,
+  description TEXT NOT NULL,
+  amount NUMERIC(10,2) NOT NULL,
+  due_date DATE NOT NULL,
+  status TEXT DEFAULT 'nao_pago',
+  paid_at DATE,
+  paid_amount NUMERIC(10,2),
+  category TEXT DEFAULT 'gasto_fixo',
+  payment_type TEXT DEFAULT 'debito',
+  is_agreement BOOLEAN DEFAULT false,
+  agreement_id TEXT,
+  installment_index INT,
+  installments_count INT,
+  total_amount NUMERIC(10,2),
+  notes TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 4. Tabela de Orçamentos / Limites Mensais por Usuário (User Budgets)
+CREATE TABLE IF NOT EXISTS user_budgets (
+  user_id TEXT PRIMARY KEY,
+  amount NUMERIC(10,2) NOT NULL DEFAULT 4000.00,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Habilitar RLS e permitir leitura/escrita no Supabase
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir acesso público às transações" ON transactions;
 CREATE POLICY "Permitir acesso público às transações" ON transactions FOR ALL USING (true);
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS "Permitir acesso público aos usuários" ON users;
-CREATE POLICY "Permitir acesso público aos usuários" ON users FOR ALL USING (true);`;
+CREATE POLICY "Permitir acesso público aos usuários" ON users FOR ALL USING (true);
+
+ALTER TABLE bills ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir acesso público às contas" ON bills;
+CREATE POLICY "Permitir acesso público às contas" ON bills FOR ALL USING (true);
+
+ALTER TABLE user_budgets ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Permitir acesso público aos orçamentos" ON user_budgets;
+CREATE POLICY "Permitir acesso público aos orçamentos" ON user_budgets FOR ALL USING (true);`;
 
   const handleTestConnection = async (e) => {
     e.preventDefault();
